@@ -61,6 +61,9 @@ svg.i.fill{fill:currentColor}
 .auth p{color:var(--ink-2);margin:0 0 28px}
 .auth .field{margin-bottom:12px}
 .auth small{display:block;color:var(--ink-3);margin-top:14px;font-size:13px}
+.pw-wrap{position:relative}
+.pw-wrap .field{padding-right:72px}
+.pw-eye{position:absolute;right:8px;top:6px;height:40px;padding:0 12px;border-radius:11px;font-size:14px;font-weight:600;color:var(--peach-deep)}
 
 /* ---------- layout ---------- */
 .app{max-width:1120px;margin:0 auto;padding:calc(var(--safe-t) + 8px) 16px calc(96px + var(--safe-b))}
@@ -432,19 +435,26 @@ svg.i.fill{fill:currentColor}
   <div class="auth-card">
     <div class="logo" style="margin:0 auto">🍑</div>
     <h1>Eckert Haus<br>Kitchen</h1>
-    <p id="authMsg">Our family recipe box. Sign in with your email — no password needed.</p>
-    <form id="authForm">
+    <p id="authMsg">Our family recipe box.</p>
+    <form id="authForm" autocomplete="on">
       <label class="sr" for="authEmail">Email</label>
-      <input class="field" id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@email.com" required>
-      <button class="btn primary block" id="authBtn" type="submit">Send sign-in link</button>
+      <input class="field" id="authEmail" name="email" type="email" autocomplete="username" inputmode="email" placeholder="Email" required>
+      <div class="pw-wrap">
+        <label class="sr" for="authPw">Password</label>
+        <input class="field" id="authPw" name="password" type="password" autocomplete="current-password" placeholder="Password" required minlength="6">
+        <button type="button" class="pw-eye" data-eye="authPw" aria-label="Show password">Show</button>
+      </div>
+      <button class="btn primary block" id="authBtn" type="submit">Sign in</button>
+      <button class="link-btn" type="button" id="forgotBtn" style="margin-top:14px">Forgot password?</button>
     </form>
-    <form id="codeForm" hidden>
-      <label class="sr" for="authCode">Code</label>
-      <input class="field" id="authCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" maxlength="8" style="text-align:center;letter-spacing:.3em;font-weight:700">
-      <button class="btn mint block" type="submit">Sign in with code</button>
-      <button class="link-btn" type="button" id="codeBack" style="margin-top:10px">Use a different email</button>
+    <form id="resetForm" hidden>
+      <div class="pw-wrap">
+        <label class="sr" for="newPw">New password</label>
+        <input class="field" id="newPw" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" required minlength="8">
+        <button type="button" class="pw-eye" data-eye="newPw" aria-label="Show password">Show</button>
+      </div>
+      <button class="btn mint block" id="resetBtn" type="submit">Save new password</button>
     </form>
-    <small>Using the Home Screen app? Type the 6-digit code from the email here.</small>
   </div>
 </section>
 

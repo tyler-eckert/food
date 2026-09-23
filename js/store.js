@@ -18,11 +18,10 @@ async function supabaseStore() {
       user = data.session?.user ?? null;
       return data.session;
     },
-    onAuth(cb) { sb.auth.onAuthStateChange((_e, s) => { user = s?.user ?? null; cb(s); }); },
-    async signIn(email) {
-      ok(await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } }));
-    },
-    async verifyCode(email, token) { ok(await sb.auth.verifyOtp({ email, token, type: "email" })); },
+    onAuth(cb) { sb.auth.onAuthStateChange((event, s) => { user = s?.user ?? null; cb(s, event); }); },
+    async signIn(email, password) { ok(await sb.auth.signInWithPassword({ email, password })); },
+    async resetPassword(email) { ok(await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname })); },
+    async updatePassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async isMember() { return ok(await sb.rpc("is_member")) === true; },
     async me() {
@@ -135,7 +134,7 @@ function demoStore() {
     mode: "demo",
     async session() { return { user: { id: "me" } }; },
     onAuth() {},
-    async signIn() {}, async verifyCode() {}, async signOut() { location.reload(); },
+    async signIn() {}, async resetPassword() {}, async updatePassword() {}, async signOut() { location.reload(); },
     async isMember() { return true; },
     async me() { const p = people[0]; return { id: "me", email: "demo@eckerthaus.com", ...p }; },
     async loadAll() {
