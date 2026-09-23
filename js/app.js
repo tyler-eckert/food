@@ -806,7 +806,7 @@ let entered = false;
 async function enter() {
   if (entered) return;
   if (!(await store.isMember())) {
-    showAuth(`You're signed in, but this email isn't on the family list yet. Ask Tyler to add it, then refresh.`, true);
+    showAuth(`You're signed in, but this email isn't on the family list yet. Add it to allowed_emails in Supabase, then refresh.`, true);
     return;
   }
   entered = true;
@@ -818,33 +818,57 @@ async function enter() {
 function showAuth(msg, signedInButBlocked = false) {
   $("#boot").hidden = true; $("#app").hidden = true; $("#auth").hidden = false;
   if (msg) $("#authMsg").textContent = msg;
-  if (signedInButBlocked) { $("#authForm").hidden = true; $("#codeForm").hidden = true; $("#authMsg").insertAdjacentHTML("afterend", `<button class="btn soft" data-act="signout">Sign out</button>`); }
+  if (signedInButBlocked) { $("#authForm").hidden = true; $("#resetForm").hidden = true; $("#authMsg").insertAdjacentHTML("afterend", `<button class="btn soft" data-act="signout">Sign out</button>`); }
 }
+function showNewPassword() {
+  showAuth("Choose a new password for your account.");
+  $("#authForm").hidden = true; $("#resetForm").hidden = false; $("#newPw").focus();
+}
+const busy = (btn, on, label) => { btn.disabled = on; btn.innerHTML = on ? `<span class="spin"></span>` : label; };
+const friendly = (m) => /invalid login/i.test(m) ? "That email and password don't match. Try again or reset your password."
+  : /email not confirmed/i.test(m) ? "This account hasn't been confirmed yet — check the email inbox, or confirm the user in Supabase."
+  : /rate limit|too many/i.test(m) ? "Too many tries — wait a minute and try again." : m;
 
-let authEmail = "";
 $("#authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  authEmail = $("#authEmail").value.trim().toLowerCase();
-  const b = $("#authBtn"); b.disabled = true; b.innerHTML = `<span class="spin"></span>`;
-  try {
-    await store.signIn(authEmail);
-    $("#authMsg").innerHTML = `Check <b>${h(authEmail)}</b> — tap the link, or enter the code here.`;
-    $("#authForm").hidden = true; $("#codeForm").hidden = false; $("#authCode").focus();
-  } catch (er) { toast(er.message); }
-  b.disabled = false; b.textContent = "Send sign-in link";
+  const b = $("#authBtn"); busy(b, true);
+  try { await store.signIn($("#authEmail").value.trim().toLowerCase(), $("#authPw").value); }   // onAuth → enter()
+  catch (er) { toast(friendly(er.message)); busy(b, false, "Sign in"); }
 });
-$("#codeForm").addEventListener("submit", async (e) => {
+$("#forgotBtn").addEventListener("click", async () => {
+  const email = $("#authEmail").value.trim().toLowerCase();
+  if (!email) { toast("Type your email first, then tap Forgot password"); return $("#authEmail").focus(); }
+  try { await store.resetPassword(email); $("#authMsg").innerHTML = `Check <b>${h(email)}</b> for a link to set a new password.`; }
+  catch (er) { toast(friendly(er.message)); }
+});
+$("#resetForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  try { await store.verifyCode(authEmail, $("#authCode").value.trim()); } catch (er) { toast(er.message); }
+  const b = $("#resetBtn"); busy(b, true);
+  try {
+    await store.updatePassword($("#newPw").value);
+    recovering = false; toast("Password saved"); history.replaceState(null, "", location.pathname);
+    await enter();
+  } catch (er) { toast(friendly(er.message)); busy(b, false, "Save new password"); }
 });
-$("#codeBack").addEventListener("click", () => { $("#codeForm").hidden = true; $("#authForm").hidden = false; });
+document.addEventListener("click", (e) => {
+  const eye = e.target.closest("[data-eye]"); if (!eye) return;
+  const inp = $("#" + eye.dataset.eye), show = inp.type === "password";
+  inp.type = show ? "text" : "password"; eye.textContent = show ? "Hide" : "Show";
+});
+
+// Arriving from a "reset password" email: show the new-password form instead of the app.
+let recovering = /type=recovery/.test(location.hash);
 
 (async function boot() {
   try {
     store = await createStore();
-    store.onAuth((s) => { if (s) enter(); else if (entered) location.reload(); });
+    store.onAuth((s, event) => {
+      if (event === "PASSWORD_RECOVERY") { recovering = true; return showNewPassword(); }
+      if (s && !recovering) enter(); else if (!s && entered) location.reload();
+    });
     const session = await store.session();
-    if (session) await enter(); else showAuth();
+    if (recovering) showNewPassword();
+    else if (session) await enter(); else showAuth();
   } catch (e) {
     console.error(e);
     $("#boot").innerHTML = `<div class="empty"><div class="logo">🥲</div><h3>Couldn't start</h3><p>${h(e.message)}</p></div>`;

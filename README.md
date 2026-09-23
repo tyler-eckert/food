@@ -29,12 +29,11 @@ CNAME                   food.eckerthaus.com
 3. **Authentication → URL Configuration**
    - Site URL: `https://food.eckerthaus.com`
    - Redirect URLs: add `https://food.eckerthaus.com` and `http://localhost:8000` (for local testing)
-4. **Authentication → Email Templates → Magic Link**: add the code so people using the Home Screen app can type it in:
-   ```html
-   <h2>Your Eckert Haus Kitchen sign-in</h2>
-   <p><a href="{{ .ConfirmationURL }}">Tap here to sign in</a></p>
-   <p>Or enter this code in the app: <b>{{ .Token }}</b></p>
-   ```
+4. **Create the household login** (one shared account = one profile, shared pins and hearts):
+   - **Authentication → Users → Add user → Create new user**: enter the email and password, and tick **Auto Confirm User**.
+   - Make sure that email is in `allowed_emails`: `insert into allowed_emails values ('you@example.com') on conflict do nothing;`
+   - Recommended: **Authentication → Sign In / Providers → Email**, turn off **Allow new users to sign up**, since accounts are only created from the dashboard.
+   - Forgot the password? Use **Forgot password?** on the sign-in screen. The reset email links back to the Site URL above.
 5. **Project Settings → API**: copy the Project URL and the `anon` public key into `config.js`.
 
 > The anon key is meant to be public. Security comes from Row Level Security: only emails in `allowed_emails` can read or write anything. Anyone else who signs in sees an empty app and a "not on the family list" message.
