@@ -49,7 +49,9 @@ It's safe to re-run: any recipe whose title already exists is skipped. To edit t
 
 ### Link-import function
 
-This needs the [Supabase CLI](https://supabase.com/docs/guides/cli) (`brew install supabase/tap/supabase` or `npm i -g supabase`):
+**Easiest — no CLI:** Supabase → **Edge Functions → Deploy a new function → Via Editor**. Name it exactly `import-recipe`, replace the sample code with all of `supabase/functions/import-recipe/index.ts`, and click **Deploy function**.
+
+**Or with the [Supabase CLI](https://supabase.com/docs/guides/cli)** (`brew install supabase/tap/supabase` or `npm i -g supabase`):
 
 ```bash
 supabase login
