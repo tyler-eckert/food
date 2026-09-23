@@ -79,7 +79,9 @@ async function supabaseStore() {
       const { data, error } = await sb.functions.invoke("import-recipe", { body: { url } });
       if (error) {
         let msg = error.message;
-        try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
+        if (error.name === "FunctionsFetchError" || /failed to send/i.test(msg)) msg = "Link import isn't reachable — the import-recipe function may not be deployed yet. Use “Paste recipe text” for now.";
+        else if (error.context?.status === 404) msg = "Link import isn't set up yet (import-recipe function not found).";
+        else try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
         throw new Error(msg);
       }
       if (data?.error) throw new Error(data.error);
