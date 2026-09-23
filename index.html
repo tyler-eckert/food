@@ -323,6 +323,62 @@ svg.i.fill{fill:currentColor}
 .swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
 .demo-note{margin-top:16px;padding:14px 16px;border-radius:var(--r);background:var(--butter-soft);color:#7A5A12;font-size:14px;line-height:1.5}
 
+
+/* ---------- list view ---------- */
+.circle-btn.sm{width:36px;height:36px;flex:none}
+.sort-pill{position:relative;padding-right:12px;flex:none}
+.sort-pill select{appearance:none;-webkit-appearance:none;border:0;background:none;font-weight:600;font-size:15px;outline:none;cursor:pointer;padding-right:2px;width:84px}
+.sort-pill .chev{color:var(--ink-3);pointer-events:none}
+#dirBtn[data-dir="-1"] svg{transform:scaleY(-1)}
+.list-meta{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--ink-3);margin:12px 4px 0;font-weight:500}
+.list-meta .link-btn{font-size:14px}
+.lgroup{margin-top:18px}
+.lgroup-head{display:flex;align-items:center;gap:10px;margin:0 4px 8px;position:sticky;top:0;z-index:4;padding:8px 0 6px;background:linear-gradient(var(--bg) 70%,transparent)}
+.lgroup-head h2{font:800 20px var(--font-round);letter-spacing:-.02em;margin:0}
+.lgroup-head .n{font-size:13px;color:var(--ink-3);font-weight:600;background:var(--surface);border-radius:999px;padding:2px 9px;box-shadow:var(--shadow-sm)}
+.lgroup-head .swatch-dot{width:12px;height:12px;border-radius:4px}
+.list{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.item{position:relative}
+.item+.item::before{content:"";position:absolute;top:0;left:74px;right:0;border-top:1px solid var(--line)}
+.item-head{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;text-align:left;min-height:68px}
+.item-head:active{background:var(--surface-2)}
+.item-head .tn{width:48px;height:48px;border-radius:13px;overflow:hidden;flex:none;font-size:24px;display:block}
+.item-head .tn img{width:100%;height:100%;object-fit:cover}
+.item-head .mid{flex:1;min-width:0}
+.item-head h3{font-size:16px;line-height:1.25;font-weight:650;margin:0 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-head .meta{display:block;font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-head .right{display:flex;align-items:center;gap:8px;flex:none;color:var(--ink-3)}
+.item-head .avg{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.item-head .avg svg{width:14px;height:14px;color:var(--heart)}
+.item-head .pinned{color:var(--peach-deep)}
+.item-head .chev{transition:transform .3s var(--ease)}
+.item.open .item-head .chev{transform:rotate(180deg)}
+.item.open{background:linear-gradient(var(--surface-2),var(--surface))}
+.item-body{padding:2px 16px 18px;animation:fade .3s var(--ease)}
+@media(min-width:620px){.item-body{padding-left:74px;padding-right:22px}}
+.item-body .desc{margin:0 0 10px;color:var(--ink-2);font-size:15px}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--ink-2);margin:10px 0 2px}
+.facts b{color:var(--ink);font-weight:700}
+.item-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.item-actions .hearts button{width:34px;height:34px}
+.item-actions .hearts button svg{width:24px;height:24px}
+.item-actions .hearts{gap:0;margin-right:auto}
+.mini-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:11px;background:var(--bg-2);font-size:14px;font-weight:600;color:var(--ink-2)}
+.mini-btn.on{background:var(--peach-soft);color:#B8583A}
+.mini-btn svg{color:var(--peach-deep)}
+.sub{margin-top:10px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.sub>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;font:800 16px var(--font-round);letter-spacing:-.01em}
+.sub>summary::-webkit-details-marker{display:none}
+.sub>summary .ico{width:28px;height:28px;border-radius:9px;display:grid;place-items:center}
+.sub>summary .cnt{font:600 13px var(--font);color:var(--ink-3);margin-left:auto}
+.sub>summary .chev{color:var(--ink-3);transition:transform .3s var(--ease)}
+.sub[open]>summary .chev{transform:rotate(180deg)}
+.sub .inner{padding:0 14px 12px}
+.sub .ing li,.sub .steps li{padding:9px 0;font-size:15.5px}
+.sub .steps li::before{width:26px;height:26px;font-size:13.5px}
+.credit{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);background:var(--butter-soft);border-radius:999px;padding:4px 11px;font-weight:600}
+.item-notes{margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--butter-soft);color:#6E5418;font-size:14.5px;line-height:1.45;white-space:pre-wrap}
+
 /* toast */
 .toast{position:fixed;left:50%;width:max-content;text-align:center;bottom:calc(92px + var(--safe-b));transform:translate(-50%,20px);opacity:0;z-index:90;pointer-events:none;
   background:rgba(46,37,48,.92);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;font-weight:500;max-width:calc(100% - 32px);box-shadow:var(--shadow);transition:.35s var(--ease)}
@@ -362,6 +418,10 @@ svg.i.fill{fill:currentColor}
   <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19C5 10 10 5 20 4c0 9-5 15-13 15z"/><path d="M5 19c3-5 6-7.5 9.5-9"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></symbol>
   <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="16.5" rx="2.5"/><path d="M9 4.5V3h6v1.5"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 24 24"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
 </svg>
 
@@ -402,15 +462,23 @@ svg.i.fill{fill:currentColor}
         <button class="pill-btn" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
           <svg class="i sm"><use href="#i-sliders"/></svg>Filters<span class="badge" id="filterCount" hidden></span>
           <svg class="i sm chev"><use href="#i-down"/></svg></button>
-        <div class="segmented" id="sort" role="group" aria-label="Sort">
-          <button data-sort="new" aria-pressed="true">New</button><button data-sort="top">Top</button><button data-sort="quick">Quick</button><button data-sort="az">A–Z</button>
-        </div>
+        <label class="pill-btn sort-pill" for="sortSel"><svg class="i sm"><use href="#i-sort"/></svg>
+          <select id="sortSel" aria-label="Sort recipes">
+            <option value="category">Category</option>
+            <option value="az">A–Z</option>
+            <option value="new">Newest</option>
+            <option value="top">Top rated</option>
+            <option value="mine">My rating</option>
+            <option value="quick">Quickest</option>
+            <option value="fewest">Simplest</option>
+            <option value="protein">Protein</option>
+            <option value="cuisine">Cuisine</option>
+          </select><svg class="i sm chev"><use href="#i-down"/></svg></label>
+        <button class="circle-btn sm" id="dirBtn" aria-label="Reverse sort order" title="Reverse order"><svg class="i sm"><use href="#i-updown"/></svg></button>
       </div>
       <div class="collapse" id="filterWrap"><div><div class="filter-panel" id="filterPanel"></div></div></div>
       <div class="active-row" id="activeChips"></div>
-      <div id="pinnedBlock"></div>
-      <div class="section-head"><h2 id="allTitle">All recipes</h2><span id="allCount"></span></div>
-      <div class="grid" id="grid"></div>
+      <div id="list"></div>
     </section>
 
     <!-- Pinned -->
@@ -418,7 +486,7 @@ svg.i.fill{fill:currentColor}
       <div class="nav-top"><span class="eyebrow">📌 Quick access</span>
         <button class="circle-btn primary" data-act="new" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button></div>
       <h1 class="large-title">Pinned</h1>
-      <div class="grid" id="pinnedGrid"></div>
+      <div id="pinnedList"></div>
     </section>
 
     <!-- Favorites / rankings -->
