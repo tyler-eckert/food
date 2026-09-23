@@ -75,6 +75,14 @@ async function supabaseStore() {
       ok(await sb.storage.from("recipe-images").upload(path, blob, { contentType: "image/jpeg", upsert: false }));
       return sb.storage.from("recipe-images").getPublicUrl(path).data.publicUrl;
     },
+    /** Live updates: calls onChange whenever any shared table changes (needs Realtime enabled — see 003_realtime.sql). */
+    subscribe(onChange) {
+      const ch = sb.channel("kitchen-sync");
+      for (const table of ["recipes", "ingredients", "steps", "pins", "ratings", "profiles", "families"])
+        ch.on("postgres_changes", { event: "*", schema: "public", table }, () => onChange(table));
+      ch.subscribe();
+      return () => sb.removeChannel(ch);
+    },
     async importUrl(url) {
       const { data, error } = await sb.functions.invoke("import-recipe", { body: { url } });
       if (error) {
@@ -134,6 +142,7 @@ function demoStore() {
 
   return {
     mode: "demo",
+    subscribe() { return () => {}; },
     async session() { return { user: { id: "me" } }; },
     onAuth() {},
     async signIn() {}, async resetPassword() {}, async updatePassword() {}, async signOut() { location.reload(); },

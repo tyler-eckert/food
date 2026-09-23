@@ -14,6 +14,7 @@ js/parse.js             ingredient/step/text parsers + quantity scaling
 config.js               ← your Supabase URL + anon key
 supabase/schema.sql     tables, RLS, save_recipe(), storage bucket
 supabase/seed_recipes.sql  migration 002 + the family recipe book
+supabase/003_realtime.sql  live sync between devices
 seed/                   recipe source (recipes.mjs) → build.mjs → SQL + demo JSON
 supabase/functions/import-recipe/   edge function for link import
 CNAME                   food.eckerthaus.com
@@ -46,6 +47,10 @@ In **SQL Editor → New query**, paste all of `supabase/seed_recipes.sql` and cl
 2. inserts every recipe with sectioned ingredients (Crust / Filling, Sauce, For serving…) and one step per line
 
 It's safe to re-run: any recipe whose title already exists is skipped. To edit the source list, change `seed/recipes.mjs` and run `node seed/build.mjs` to regenerate the SQL.
+
+### Live sync between devices
+
+Run `supabase/003_realtime.sql` in the SQL Editor once. It turns on Supabase Realtime for the app's tables, so a recipe added on one device appears on the others within a couple of seconds. The app also refreshes whenever it comes back to the foreground, and tapping the tab you're already on refreshes it.
 
 ### Link-import function
 

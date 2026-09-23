@@ -668,7 +668,7 @@ document.addEventListener("click", async (e) => {
 
   if (d.ck) { S.ck.has(d.ck) ? S.ck.delete(d.ck) : S.ck.add(d.ck); return t.classList.toggle("done"); }
   if (d.open) return go("#/r/" + d.open);
-  if (d.tab) return go("#/" + d.tab);
+  if (d.tab) { if (d.tab === S.tab && !$$(".sheet.open").length) { window.scrollTo({ top: 0, behavior: "smooth" }); return syncNow(false); } return go("#/" + d.tab); }
   if (d.f) { // filter chip
     const set = (S.filters[d.f] ||= new Set());
     set.has(d.v) ? set.delete(d.v) : set.add(d.v);
@@ -814,6 +814,38 @@ async function enter() {
   await reload();
   $("#auth").hidden = true; $("#app").hidden = false; $("#boot").hidden = true;
   await route();
+  startSync();
+}
+
+// ------------------------------------------------------------------ cross-device sync
+// 1) Live: Supabase Realtime pushes changes made on any device.
+// 2) Fallback: reload whenever the app comes back to the foreground (phone unlock, tab switch).
+// 3) Manual: tap the tab you're already on.
+let lastSync = Date.now(), syncing = false;
+async function syncNow(quiet = true) {
+  if (!entered || syncing) return;
+  syncing = true;
+  try {
+    const y = window.scrollY;
+    await reload();
+    if (S.detail && !$("#editorSheet").classList.contains("open")) {
+      const fresh = byId(S.detail.id);
+      if (fresh) { S.detail = { ...fresh, ...structuredClone(detailsOf(fresh.id)) }; renderDetail(); }
+    }
+    window.scrollTo(0, y);
+    lastSync = Date.now();
+    if (!quiet) toast("Up to date");
+  } catch (e) { if (!quiet) toast(e.message); }
+  finally { syncing = false; }
+}
+const syncSoon = debounce(() => syncNow(true), 700);
+function startSync() {
+  store.subscribe(() => syncSoon());
+  const onFront = () => { if (document.visibilityState === "visible" && Date.now() - lastSync > 5000) syncNow(true); };
+  document.addEventListener("visibilitychange", onFront);
+  window.addEventListener("focus", onFront);
+  window.addEventListener("pageshow", onFront);
+  window.addEventListener("online", () => syncNow(true));
 }
 function showAuth(msg, signedInButBlocked = false) {
   $("#boot").hidden = true; $("#app").hidden = true; $("#auth").hidden = false;
