@@ -107,25 +107,6 @@ async function supabaseStore() {
       if (data?.error) throw new Error(data.error);
       return data.recipe;
     },
-    async importPhoto(file) {
-      const blob = await shrinkImage(file, 1200);
-      const image = await new Promise((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(String(fr.result).split(",")[1]);
-        fr.onerror = () => rej(new Error("Couldn't read that photo"));
-        fr.readAsDataURL(blob);
-      });
-      const { data, error } = await sb.functions.invoke("import-recipe-photo", { body: { image, media_type: "image/jpeg" } });
-      if (error) {
-        let msg = error.message;
-        if (error.name === "FunctionsFetchError" || /failed to send/i.test(msg)) msg = "Photo import isn't reachable — the import-recipe-photo function may not be deployed yet.";
-        else if (error.context?.status === 404) msg = "Photo import isn't set up yet (import-recipe-photo function not found).";
-        else try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
-        throw new Error(msg);
-      }
-      if (data?.error) throw new Error(data.error);
-      return data.recipe;
-    },
   };
 }
 
@@ -222,10 +203,6 @@ function demoStore() {
     async importUrl() {
       await wait(500);
       throw new Error("Link import runs through Supabase — connect config.js to turn it on. Meanwhile, paste the recipe text below.");
-    },
-    async importPhoto() {
-      await wait(500);
-      throw new Error("Photo import runs through Supabase — connect config.js to turn it on. Meanwhile, type in what you can read from the photo.");
     },
   };
 }
