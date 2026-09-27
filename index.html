@@ -260,7 +260,7 @@ svg.i.fill{fill:currentColor}
 .steps li::before{content:counter(s);flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--peach-soft);color:#B8583A;font:800 15px var(--font-round)}
 .steps li.done{color:var(--ink-3)}
 .steps li.done::before{content:"✓";background:var(--mint-soft);color:var(--mint-deep)}
-.action-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.action-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:4px}
 .action{white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:16px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:12.5px;font-weight:600;color:var(--ink-2);text-decoration:none}
 .action svg{color:var(--peach-deep)}
 .action.on{background:var(--peach-soft);color:#B8583A}
@@ -382,6 +382,18 @@ svg.i.fill{fill:currentColor}
 .credit{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);background:var(--butter-soft);border-radius:999px;padding:4px 11px;font-weight:600}
 .item-notes{margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--butter-soft);color:#6E5418;font-size:14.5px;line-height:1.45;white-space:pre-wrap}
 
+/* ---------- grocery ---------- */
+.grocery-add{display:flex;align-items:center;gap:8px;margin:4px 0 16px}
+.grocery-add input{flex:1}
+.item.grocery-row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.item.grocery-row+.item.grocery-row::before{content:"";position:absolute;top:0;left:14px;right:0;border-top:1px solid var(--line)}
+.g-check{width:26px;height:26px;border-radius:50%;border:1.8px solid var(--line-2);display:grid;place-items:center;flex:none;color:#fff;transition:.2s}
+.item.grocery-row.done .g-check{background:var(--mint);border-color:var(--mint)}
+.g-txt{flex:1;font-size:15.5px;min-width:0}
+.item.grocery-row.done .g-txt{color:var(--ink-3);text-decoration:line-through}
+.g-del{color:var(--ink-3);flex:none;padding:6px}
+.grocery-foot{display:flex;align-items:center;gap:10px;margin-top:18px}
+
 /* toast */
 .toast{position:fixed;left:50%;width:max-content;text-align:center;bottom:calc(92px + var(--safe-b));transform:translate(-50%,20px);opacity:0;z-index:90;pointer-events:none;
   background:rgba(46,37,48,.92);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;font-weight:500;max-width:calc(100% - 32px);box-shadow:var(--shadow);transition:.35s var(--ease)}
@@ -426,6 +438,7 @@ svg.i.fill{fill:currentColor}
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 12.2A2 2 0 0 0 9.4 18H18a2 2 0 0 0 2-2l1.2-7H6"/><circle cx="9.5" cy="21" r="1.4"/><circle cx="17.5" cy="21" r="1.4"/></symbol>
 </svg>
 
 <div id="boot" class="boot"><div class="logo">🍑</div></div>
@@ -494,17 +507,34 @@ svg.i.fill{fill:currentColor}
     <!-- Pinned -->
     <section class="view" id="view-pinned" data-view="pinned" hidden>
       <div class="nav-top"><span class="eyebrow">📌 Quick access</span>
-        <button class="circle-btn primary" data-act="new" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <span style="display:flex;gap:8px">
+          <button class="circle-btn" data-act="add-pinned-groc" aria-label="Add all pinned to grocery list" title="Add all pinned to grocery list"><svg class="i"><use href="#i-cart"/></svg></button>
+          <button class="circle-btn primary" data-act="new" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button>
+        </span></div>
       <h1 class="large-title">Pinned</h1>
       <div id="pinnedList"></div>
     </section>
 
     <!-- Favorites / rankings -->
     <section class="view" id="view-favorites" data-view="favorites" hidden>
-      <div class="nav-top"><span class="eyebrow">💗 Family rankings</span></div>
+      <div class="nav-top"><span class="eyebrow">💗 Family rankings</span>
+        <button class="circle-btn" data-act="add-fav-groc" aria-label="Add favorites to grocery list" title="Add favorites (4+ hearts) to grocery list"><svg class="i"><use href="#i-cart"/></svg></button></div>
       <h1 class="large-title">Favorites</h1>
       <div class="segmented" id="famSeg" role="group" aria-label="Family" style="margin-bottom:16px"></div>
       <div id="rankList"></div>
+    </section>
+
+    <!-- Grocery -->
+    <section class="view" id="view-grocery" data-view="grocery" hidden>
+      <div class="nav-top"><span class="eyebrow">🧺 Shopping</span></div>
+      <h1 class="large-title">Grocery List</h1>
+      <div class="grocery-add"><input class="field" id="groceryAdd" placeholder="Add an item…" enterkeyhint="done" autocomplete="off">
+        <button class="circle-btn primary" data-act="add-grocery-item" aria-label="Add item"><svg class="i"><use href="#i-plus"/></svg></button></div>
+      <div id="groceryList"></div>
+      <div class="grocery-foot" id="groceryFoot" hidden>
+        <button class="btn soft sm" id="clearCheckedBtn" data-act="clear-checked" hidden>Clear checked</button>
+        <button class="btn mint sm" style="margin-left:auto" data-act="export-grocery"><svg class="i sm"><use href="#i-share"/></svg>Export list</button>
+      </div>
     </section>
 
     <!-- Me -->
@@ -519,6 +549,7 @@ svg.i.fill{fill:currentColor}
     <button data-tab="recipes"><svg class="i"><use href="#i-book"/></svg>Recipes</button>
     <button data-tab="pinned"><svg class="i"><use href="#i-pin"/></svg>Pinned</button>
     <button data-tab="favorites"><svg class="i"><use href="#i-heart"/></svg>Favorites</button>
+    <button data-tab="grocery"><svg class="i"><use href="#i-cart"/></svg>Grocery</button>
     <button data-tab="me"><svg class="i"><use href="#i-person"/></svg>Me</button>
   </div></nav>
 </div>
@@ -528,6 +559,7 @@ svg.i.fill{fill:currentColor}
 <div class="sheet editor" id="editorSheet" role="dialog" aria-modal="true" aria-label="Edit recipe"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="photoInput" accept="image/*" hidden>
+<input type="file" id="recipePhotoInput" accept="image/*" capture="environment" hidden>
 
 <script type="module" src="js/app.js"></script>
 </body>
