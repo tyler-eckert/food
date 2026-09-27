@@ -392,7 +392,7 @@ svg.i.fill{fill:currentColor}
 .g-txt{flex:1;font-size:15.5px;min-width:0}
 .item.grocery-row.done .g-txt{color:var(--ink-3);text-decoration:line-through}
 .g-del{color:var(--ink-3);flex:none;padding:6px}
-.grocery-foot{display:flex;align-items:center;gap:10px;margin-top:18px}
+.grocery-foot{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
 
 /* toast */
 .toast{position:fixed;left:50%;width:max-content;text-align:center;bottom:calc(92px + var(--safe-b));transform:translate(-50%,20px);opacity:0;z-index:90;pointer-events:none;
@@ -533,6 +533,7 @@ svg.i.fill{fill:currentColor}
       <div id="groceryList"></div>
       <div class="grocery-foot" id="groceryFoot" hidden>
         <button class="btn soft sm" id="clearCheckedBtn" data-act="clear-checked" hidden>Clear checked</button>
+        <button class="btn danger sm" id="clearAllBtn" data-act="clear-all-grocery">Clear all</button>
         <button class="btn mint sm" style="margin-left:auto" data-act="export-grocery"><svg class="i sm"><use href="#i-share"/></svg>Export list</button>
       </div>
     </section>
