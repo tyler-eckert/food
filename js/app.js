@@ -359,6 +359,8 @@ function renderGrocery() {
   const anyChecked = S.grocery.some((i) => i.checked);
   $("#groceryFoot").hidden = !S.grocery.length;
   $("#clearCheckedBtn").hidden = !anyChecked;
+  const clearAllBtn = $("#clearAllBtn");
+  if (clearAllBtn && !clearAllBtn.dataset.confirm) clearAllBtn.textContent = "Clear all";
 }
 async function pushRecipesToGrocery(ids, successMsg) {
   const rows = [];
@@ -404,6 +406,22 @@ async function clearCheckedGrocery() {
   if (!ids.length) return;
   S.grocery = S.grocery.filter((i) => !i.checked); renderGrocery();
   try { await store.deleteGroceryItems(ids); } catch (e) { toast(e.message); }
+}
+let clearAllTimer;
+async function clearAllGrocery() {
+  if (!S.grocery.length) return;
+  const btn = $("#clearAllBtn");
+  if (!btn.dataset.confirm) {
+    btn.dataset.confirm = "1"; btn.textContent = "Tap again to clear everything";
+    clearTimeout(clearAllTimer);
+    clearAllTimer = setTimeout(() => { delete btn.dataset.confirm; btn.textContent = "Clear all"; }, 3000);
+    return;
+  }
+  clearTimeout(clearAllTimer);
+  delete btn.dataset.confirm; btn.textContent = "Clear all";
+  const ids = S.grocery.map((i) => i.id);
+  S.grocery = []; renderGrocery();
+  try { await store.deleteGroceryItems(ids); toast("Grocery list cleared"); } catch (e) { toast(e.message); }
 }
 function groceryExportText() {
   return groceryGroups().map((g) => `${g.label}\n` + g.items.map((i) => `- [ ] ${groceryLine(i)}`).join("\n")).join("\n\n");
@@ -803,6 +821,7 @@ document.addEventListener("click", async (e) => {
     case "add-fav-groc": return addFavoritesToGrocery();
     case "add-grocery-item": { const v = $("#groceryAdd").value; $("#groceryAdd").value = ""; return addManualGroceryItem(v); }
     case "clear-checked": return clearCheckedGrocery();
+    case "clear-all-grocery": return clearAllGrocery();
     case "export-grocery": return exportGrocery();
     case "signout": return store.signOut();
   }
