@@ -562,7 +562,6 @@ function renderEditor() {
       ${E.id ? "" : `<div class="import"><h3>${icon("wand")} Import from a link</h3><p>Paste a link from any recipe site and we'll fill everything in.</p>
         <div class="line"><input class="field" id="impUrl" type="url" inputmode="url" placeholder="https://…" autocomplete="off" enterkeyhint="go">
           <button class="btn mint sm" style="height:46px" data-act="import" id="impBtn">Import</button></div>
-        <button class="btn soft sm" style="width:100%;margin-top:10px" data-act="import-photo">${icon("camera", "sm")} Import from a photo</button>
         <div style="display:flex;gap:16px;margin-top:10px">
           <button class="link-btn" style="color:var(--mint-deep)" data-act="paste-clip">${icon("clip", "sm")} Paste from clipboard</button>
           <button class="link-btn" style="color:var(--mint-deep)" data-act="toggle-paste-text">Paste recipe text</button></div>
@@ -805,7 +804,6 @@ document.addEventListener("click", async (e) => {
     case "add-grocery-item": { const v = $("#groceryAdd").value; $("#groceryAdd").value = ""; return addManualGroceryItem(v); }
     case "clear-checked": return clearCheckedGrocery();
     case "export-grocery": return exportGrocery();
-    case "import-photo": return $("#recipePhotoInput").click();
     case "signout": return store.signOut();
   }
 });
@@ -867,18 +865,6 @@ $("#photoInput").addEventListener("change", async (e) => {
   const well = $(".photo"); well.innerHTML = `<span class="ph"><span class="spin" style="color:var(--peach-deep)"></span>Uploading…</span>`;
   try { E.image_url = await store.uploadImage(f); } catch (er) { toast(er.message); }
   rerenderKeepScroll();
-});
-$("#recipePhotoInput").addEventListener("change", async (e) => {
-  const f = e.target.files[0]; e.target.value = "";
-  if (!f) return;
-  const btn = $('[data-act="import-photo"]');
-  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> Reading the photo…`; }
-  try {
-    const r = await store.importPhoto(f);
-    applyImport(r);
-    toast(r.confidence === "low" ? "Got what I could — the photo was hard to read, so double-check everything" : "Imported! Give it a quick look, then Save ✨");
-  } catch (er) { toast(er.message); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = `${icon("camera", "sm")} Import from a photo`; } }
 });
 
 // ------------------------------------------------------------------ boot
