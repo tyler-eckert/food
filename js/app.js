@@ -17,7 +17,6 @@ const COURSE_COLOR = { Entree: "var(--peach)", Side: "var(--mint)", Appetizer: "
 const CUISINES = ["American", "Southern", "Cajun", "Tex-Mex", "Mexican", "Italian", "German", "Spanish", "Argentinian", "Korean", "French", "Greek", "Mediterranean", "Asian", "Chinese", "Japanese", "Thai", "Indian", "BBQ"];
 const PROTEINS = ["Chicken", "Beef", "Pork", "Turkey", "Seafood", "Eggs", "Beans", "Vegetarian", "Vegan"];
 const TAG_IDEAS = ["kid friendly", "weeknight", "freezer friendly", "holiday", "one pan", "healthy", "crockpot", "make ahead", "grill"];
-const FAMILY_COLORS = ["#FFB997", "#9ED9C3", "#F7B7C5", "#CFC6F2", "#FBE3A6", "#A9D6F5"];
 const EMOJI = { Breakfast: "🥞", Brunch: "🍳", Lunch: "🥪", Side: "🥔", Appetizer: "🧀", Soup: "🍲", Salad: "🥗", Dessert: "🧁", Snack: "🍿", Drink: "🍹", Sauce: "🫙", Bread: "🥖" };
 const PROTEIN_EMOJI = { Chicken: "🍗", Beef: "🥩", Pork: "🥓", Turkey: "🦃", Seafood: "🐟", Eggs: "🍳", Vegetarian: "🥕", Vegan: "🥑", Beans: "🫘" };
 const ART = [["#FFE6D8", "#FDE9EE"], ["#E0F5EC", "#FFF5DA"], ["#EFEBFC", "#FDE9EE"], ["#FFF5DA", "#FFE6D8"], ["#E0F5EC", "#EFEBFC"]];
@@ -53,7 +52,7 @@ function toast(msg) {
 // ------------------------------------------------------------------ state
 let store;
 const S = {
-  me: null, recipes: [], pins: new Map(), ratings: [], profiles: [], families: [],
+  me: null, recipes: [], pins: new Map(), ratings: [], profiles: [], families: [], grocery: [],
   tab: "recipes", q: "", filters: {}, filterOpen: false, openGroups: new Set(["course"]),
   famTab: "all", detail: null, scale: 1, checked: new Set(), wake: null,
   sort: "category", dir: 1, open: new Set(), sec: new Map(), ck: new Set(), details: new Map(),
@@ -238,6 +237,7 @@ function rowBody(r) {
       <button class="mini-btn ${pinned ? "on" : ""}" data-pin="${r.id}">${icon("pin", "sm" + (pinned ? " fill" : ""))}${pinned ? "Pinned" : "Pin"}</button>
       <button class="mini-btn" data-open="${r.id}">${icon("expand", "sm")}Open</button>
       <button class="mini-btn" data-edit="${r.id}">${icon("edit", "sm")}Edit</button>
+      <button class="mini-btn" data-groc="${r.id}">${icon("cart", "sm")}Add to list</button>
     </div>
     ${d.ingredients.length ? `<details class="sub" data-sec="ing" data-rid="${r.id}" ${sec.ing ? "open" : ""}>
       <summary><span class="ico" style="background:var(--mint-soft);color:var(--mint-deep)">${icon("list", "sm")}</span>Ingredients<span class="cnt">${d.ingredients.length}</span>${icon("down", "sm chev")}</summary>
@@ -319,17 +319,7 @@ function renderMe() {
     <div class="tiles"><div class="tile"><b>${added}</b><span>Added</span></div><div class="tile"><b>${S.pins.size}</b><span>Pinned</span></div><div class="tile"><b>${mine}</b><span>Rated</span></div></div>
     <div class="group-title">Your name</div>
     <div class="group"><div class="row"><input id="meName" value="${h(me.display_name)}" placeholder="What the family calls you" autocomplete="nickname"></div></div>
-    <div class="group-title">Your family</div>
-    <div class="group">
-      ${S.families.map((f) => `<button class="row" style="width:100%" data-setfam="${f.id}"><span class="dot" style="background:${f.color}"></span><span style="flex:1;text-align:left">${h(f.name)}</span>${me.family_id === f.id ? `<span style="color:var(--peach-deep)">${icon("check")}</span>` : ""}</button>`).join("")}
-      <button class="row" style="width:100%;color:var(--peach-deep);font-weight:600" data-act="new-family">${icon("plus", "sm")} New family</button>
-      <div id="newFam" hidden>
-        <div class="row"><input id="newFamName" placeholder="e.g. Grandma & Grandpa"></div>
-        <div class="swatches">${FAMILY_COLORS.map((c, i) => `<button class="swatch" data-color="${c}" aria-pressed="${i === 1}" style="background:${c}" aria-label="Color"></button>`).join("")}
-          <button class="btn sm primary" style="margin-left:auto" data-act="add-family">Add</button></div>
-      </div>
-    </div>
-    <p class="hint">Hearts roll up by family on the Favorites tab.</p>
+    <p class="hint">${fam ? `You're signed in as part of the ${h(fam.name)} family's recipe box — everything here is separate from other families' books.` : ""}</p>
     <div class="group-title">App</div>
     <div class="group">
       <div class="row" style="color:var(--ink-2);font-size:15px;padding:12px 16px;line-height:1.45">${icon("share", "sm")}<span>On iPhone: tap Share → <b>Add to Home Screen</b> for a full-screen app.</span></div>
@@ -338,11 +328,97 @@ function renderMe() {
     ${isDemo ? `<div class="demo-note"><b>Demo mode.</b> You're seeing sample recipes stored only in this tab. Fill in <code>config.js</code> with your Supabase URL and anon key to go live.</div>` : ""}`;
 }
 
-function renderAll() { renderHome(); renderPinned(); renderFavorites(); renderMe(); }
+function renderAll() { renderHome(); renderPinned(); renderFavorites(); renderGrocery(); renderMe(); }
+
+// ------------------------------------------------------------------ grocery list
+function groceryGroups() {
+  const map = new Map();
+  for (const it of S.grocery) {
+    const k = it.recipe_id ? "r:" + it.recipe_id : "general";
+    if (!map.has(k)) map.set(k, { label: it.recipe_id ? (it.recipe_title || "Recipe") : "General list", items: [] });
+    map.get(k).items.push(it);
+  }
+  return [...map.values()];
+}
+function groceryLine(it) {
+  return [it.quantity, it.unit, it.name].filter(Boolean).join(" ") + (it.note ? `, ${it.note}` : "");
+}
+function groceryRow(it) {
+  return `<div class="item grocery-row ${it.checked ? "done" : ""}">
+    <button class="g-check" data-gck="${it.id}" aria-label="${it.checked ? "Mark as still needed" : "Mark as already have it"}">${icon("check", "sm")}</button>
+    <span class="g-txt">${h(groceryLine(it))}</span>
+    <button class="g-del" data-gdel="${it.id}" aria-label="Remove">${icon("x", "sm")}</button>
+  </div>`;
+}
+function renderGrocery() {
+  const groups = groceryGroups();
+  $("#groceryList").innerHTML = !S.grocery.length
+    ? emptyState("🧺", "Grocery list is empty", "Tap “Add to list” on any recipe to send its ingredients here, or add something below.")
+    : groups.map((g) => `<section class="lgroup"><div class="lgroup-head"><h2>${h(g.label)}</h2><span class="n">${g.items.length}</span></div>
+        <div class="list">${g.items.map(groceryRow).join("")}</div></section>`).join("");
+  const anyChecked = S.grocery.some((i) => i.checked);
+  $("#groceryFoot").hidden = !S.grocery.length;
+  $("#clearCheckedBtn").hidden = !anyChecked;
+}
+async function pushRecipesToGrocery(ids, successMsg) {
+  const rows = [];
+  for (const id of ids) {
+    const r = byId(id), d = detailsOf(id);
+    d.ingredients.forEach((i, idx) => rows.push({ name: i.name, quantity: i.quantity, unit: i.unit, note: i.note, recipe_id: id, recipe_title: r?.title || "", source: "recipe", position: idx }));
+  }
+  if (!rows.length) return toast("No ingredients to add yet");
+  try { await store.addGroceryItems(rows); await reload(); toast(successMsg); }
+  catch (e) { toast(e.message); }
+}
+function addRecipeToGrocery(id) {
+  const r = byId(id);
+  return pushRecipesToGrocery([id], `Added ${r?.title || "that recipe"}'s ingredients to your grocery list 🧺`);
+}
+function addPinnedToGrocery() {
+  const ids = pinnedList().map((r) => r.id);
+  if (!ids.length) return toast("Nothing pinned yet");
+  return pushRecipesToGrocery(ids, `Added ingredients from ${ids.length} pinned recipe${ids.length === 1 ? "" : "s"}`);
+}
+function addFavoritesToGrocery() {
+  const famId = S.famTab === "all" ? null : S.famTab;
+  const ids = S.recipes.filter((r) => { const s = scoresFor(r.id, famId); return s.n && s.avg >= 4; }).map((r) => r.id);
+  if (!ids.length) return toast("No 4+ heart favorites yet");
+  return pushRecipesToGrocery(ids, `Added ingredients from ${ids.length} favorite${ids.length === 1 ? "" : "s"}`);
+}
+async function addManualGroceryItem(name) {
+  name = name.trim(); if (!name) return;
+  try { await store.addGroceryItem(name); await reload(); }
+  catch (e) { toast(e.message); }
+}
+async function toggleGroceryChecked(id) {
+  const it = S.grocery.find((x) => x.id === id); if (!it) return;
+  it.checked = !it.checked; renderGrocery();
+  try { await store.setGroceryChecked(id, it.checked); } catch (e) { toast(e.message); }
+}
+async function deleteGroceryItem(id) {
+  S.grocery = S.grocery.filter((x) => x.id !== id); renderGrocery();
+  try { await store.deleteGroceryItem(id); } catch (e) { toast(e.message); }
+}
+async function clearCheckedGrocery() {
+  const ids = S.grocery.filter((i) => i.checked).map((i) => i.id);
+  if (!ids.length) return;
+  S.grocery = S.grocery.filter((i) => !i.checked); renderGrocery();
+  try { await store.deleteGroceryItems(ids); } catch (e) { toast(e.message); }
+}
+function groceryExportText() {
+  return groceryGroups().map((g) => `${g.label}\n` + g.items.map((i) => `- [ ] ${groceryLine(i)}`).join("\n")).join("\n\n");
+}
+async function exportGrocery() {
+  const text = groceryExportText();
+  if (!text) return toast("Nothing to export yet");
+  if (navigator.share) { try { await navigator.share({ title: "Grocery list", text }); } catch { /* cancelled */ } return; }
+  try { await navigator.clipboard.writeText(text); toast("Copied — paste into Notes, then select the lines and tap the checklist button"); }
+  catch { toast("Couldn't copy — try again"); }
+}
 
 // ------------------------------------------------------------------ tabs & routing
 function showTab(tab) {
-  if (!["recipes", "pinned", "favorites", "me"].includes(tab)) tab = "recipes";
+  if (!["recipes", "pinned", "favorites", "grocery", "me"].includes(tab)) tab = "recipes";
   if (S.tab !== tab) window.scrollTo({ top: 0 });
   S.tab = tab;
   for (const v of $$("[data-view]")) v.hidden = v.dataset.view !== tab;
@@ -413,6 +489,7 @@ function renderDetail() {
         <button class="action" data-act="share">${icon("share")}Share</button>
         ${r.source_url ? `<a class="action" href="${h(r.source_url)}" target="_blank" rel="noopener">${icon("link")}Source</a>` : `<button class="action" data-act="pin">${icon("pin")}${pinned ? "Unpin" : "Pin"}</button>`}
         <button class="action" data-act="edit">${icon("edit")}Edit</button>
+        <button class="action" data-act="add-groc">${icon("cart")}Add to list</button>
       </div>
 
       <div class="panel"><h3>Your rating <span style="font:600 13px var(--font);color:var(--ink-3)">${mine ? ["", "Meh", "It's ok", "Good", "Really good", "Family favorite!"][mine] : "Tap to rate"}</span></h3>
@@ -485,6 +562,7 @@ function renderEditor() {
       ${E.id ? "" : `<div class="import"><h3>${icon("wand")} Import from a link</h3><p>Paste a link from any recipe site and we'll fill everything in.</p>
         <div class="line"><input class="field" id="impUrl" type="url" inputmode="url" placeholder="https://…" autocomplete="off" enterkeyhint="go">
           <button class="btn mint sm" style="height:46px" data-act="import" id="impBtn">Import</button></div>
+        <button class="btn soft sm" style="width:100%;margin-top:10px" data-act="import-photo">${icon("camera", "sm")} Import from a photo</button>
         <div style="display:flex;gap:16px;margin-top:10px">
           <button class="link-btn" style="color:var(--mint-deep)" data-act="paste-clip">${icon("clip", "sm")} Paste from clipboard</button>
           <button class="link-btn" style="color:var(--mint-deep)" data-act="toggle-paste-text">Paste recipe text</button></div>
@@ -589,6 +667,7 @@ function applyImport(r) {
     source_url: r.source_url || E.source_url, servings: r.servings || E.servings, course: matchList(r.course, COURSES) || E.course,
     cuisine: matchList(r.cuisine, CUISINES) || E.cuisine, prep_min: r.prep_min ?? E.prep_min, cook_min: r.cook_min ?? E.cook_min,
     total_min: r.total_min ?? E.total_min, tags: [...new Set([...E.tags, ...(r.tags || [])])].slice(0, 10),
+    notes: E.notes || r.notes || "",
   });
   if (r.ingredients?.length) E.ingText = r.ingredients.join("\n");
   if (r.steps?.length) E.stepText = stepsToText(r.steps);
@@ -683,8 +762,9 @@ document.addEventListener("click", async (e) => {
   if (d.diff) { E.difficulty = E.difficulty === d.diff ? "" : d.diff; for (const b of $$("#diffSeg button")) b.setAttribute("aria-pressed", b.dataset.diff === E.difficulty); return; }
   if (d.tag) return addTag(d.tag);
   if (d.untag) { E.tags = E.tags.filter((x) => x !== d.untag); return rerenderKeepScroll(); }
-  if (d.setfam) { S.me.family_id = d.setfam; await store.updateProfile({ family_id: d.setfam }).catch((er) => toast(er.message)); await reload(); return toast("Family updated"); }
-  if (d.color) { for (const s of $$(".swatch")) s.setAttribute("aria-pressed", s === t); return; }
+  if (d.groc) return addRecipeToGrocery(d.groc);
+  if (d.gck) return toggleGroceryChecked(d.gck);
+  if (d.gdel) return deleteGroceryItem(d.gdel);
 
   switch (d.act) {
     case "new": return go("#/new");
@@ -719,14 +799,13 @@ document.addEventListener("click", async (e) => {
     case "img-url": $("#imgUrlRow").hidden = false; return $('#imgUrlRow input').focus();
     case "img-clear": E.image_url = ""; return rerenderKeepScroll();
     case "toggle-parsed": $("#parsed").hidden = !$("#parsed").hidden; return updateParsed();
-    case "new-family": $("#newFam").hidden = false; return $("#newFamName").focus();
-    case "add-family": {
-      const name = $("#newFamName").value.trim(); if (!name) return;
-      const color = $(".swatch[aria-pressed=true]")?.dataset.color || FAMILY_COLORS[0];
-      try { const f = await store.createFamily(name, color); await store.updateProfile({ family_id: f.id }); S.me.family_id = f.id; await reload(); toast(`Welcome, ${name} family!`); }
-      catch (er) { toast(er.message); }
-      return;
-    }
+    case "add-groc": return addRecipeToGrocery(S.detail.id);
+    case "add-pinned-groc": return addPinnedToGrocery();
+    case "add-fav-groc": return addFavoritesToGrocery();
+    case "add-grocery-item": { const v = $("#groceryAdd").value; $("#groceryAdd").value = ""; return addManualGroceryItem(v); }
+    case "clear-checked": return clearCheckedGrocery();
+    case "export-grocery": return exportGrocery();
+    case "import-photo": return $("#recipePhotoInput").click();
     case "signout": return store.signOut();
   }
 });
@@ -757,6 +836,7 @@ document.addEventListener("keydown", (e) => {
   if (e.target.id === "tagIn" && (e.key === "Enter" || e.key === ",")) { e.preventDefault(); if (e.target.value.trim()) { addTag(e.target.value); $("#tagIn")?.focus(); } }
   if (e.target.id === "tagIn" && e.key === "Backspace" && !e.target.value && E.tags.length) { E.tags.pop(); rerenderKeepScroll("#tagIn"); }
   if (e.target.id === "impUrl" && e.key === "Enter") { e.preventDefault(); doImport(); }
+  if (e.target.id === "groceryAdd" && e.key === "Enter") { e.preventDefault(); const v = e.target.value; e.target.value = ""; addManualGroceryItem(v); }
   if (e.key === "Escape") {
     if ($("#editorSheet").classList.contains("open")) back(E?.id ? "#/r/" + E.id : "#/" + S.tab);
     else if ($("#detailSheet").classList.contains("open")) back("#/" + S.tab);
@@ -788,11 +868,24 @@ $("#photoInput").addEventListener("change", async (e) => {
   try { E.image_url = await store.uploadImage(f); } catch (er) { toast(er.message); }
   rerenderKeepScroll();
 });
+$("#recipePhotoInput").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  const btn = $('[data-act="import-photo"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> Reading the photo…`; }
+  try {
+    const r = await store.importPhoto(f);
+    applyImport(r);
+    toast(r.confidence === "low" ? "Got what I could — the photo was hard to read, so double-check everything" : "Imported! Give it a quick look, then Save ✨");
+  } catch (er) { toast(er.message); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = `${icon("camera", "sm")} Import from a photo`; } }
+});
 
 // ------------------------------------------------------------------ boot
 async function reload() {
-  const { ingredients = [], steps = [], ...d } = await store.loadAll();
+  const { ingredients = [], steps = [], grocery = [], ...d } = await store.loadAll();
   Object.assign(S, d);
+  S.grocery = [...grocery].sort((a, b) => (a.position - b.position) || (a.created_at || "").localeCompare(b.created_at || ""));
   S.details = new Map(S.recipes.map((r) => [r.id, { ingredients: [], steps: [] }]));
   for (const i of ingredients) S.details.get(i.recipe_id)?.ingredients.push(i);
   for (const x of steps) S.details.get(x.recipe_id)?.steps.push(x);

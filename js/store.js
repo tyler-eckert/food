@@ -38,7 +38,7 @@ async function supabaseStore() {
           if (rows.length < 1000) return out;
         }
       };
-      const [recipes, ingredients, steps, pins, ratings, profiles, families] = await Promise.all([
+      const [recipes, ingredients, steps, pins, ratings, profiles, families, grocery] = await Promise.all([
         all("recipes", LIST_COLS, "created_at"),
         all("ingredients", "recipe_id,position,section,quantity,unit,name,note,raw", "position"),
         all("steps", "recipe_id,position,section,body", "position"),
@@ -46,8 +46,9 @@ async function supabaseStore() {
         all("ratings", "user_id,recipe_id,score", "recipe_id"),
         sb.from("profiles").select("id,display_name,family_id").then(ok),
         sb.from("families").select("*").order("name").then(ok),
+        all("grocery_items", "id,name,quantity,unit,note,recipe_id,recipe_title,source,checked,position,created_at", "created_at"),
       ]);
-      return { recipes, ingredients, steps, pins: new Map(pins.map((p) => [p.recipe_id, p.created_at])), ratings, profiles, families };
+      return { recipes, ingredients, steps, pins: new Map(pins.map((p) => [p.recipe_id, p.created_at])), ratings, profiles, families, grocery };
     },
     async getRecipe(id) {
       const [r, ing, st] = await Promise.all([
@@ -68,7 +69,18 @@ async function supabaseStore() {
       else ok(await sb.from("ratings").delete().eq("recipe_id", id).eq("user_id", user.id));
     },
     async updateProfile(patch) { ok(await sb.from("profiles").update(patch).eq("id", user.id)); },
-    async createFamily(name, color) { return ok(await sb.from("families").insert({ name, color }).select().single()); },
+    async addGroceryItems(items) {
+      if (!items.length) return;
+      ok(await sb.from("grocery_items").insert(items.map((it) => ({
+        name: it.name, quantity: it.quantity || null, unit: it.unit || null, note: it.note || null,
+        recipe_id: it.recipe_id || null, recipe_title: it.recipe_title || null,
+        source: it.source || "recipe", position: it.position || 0,
+      }))));
+    },
+    async addGroceryItem(name) { ok(await sb.from("grocery_items").insert({ name, source: "manual" })); },
+    async setGroceryChecked(id, checked) { ok(await sb.from("grocery_items").update({ checked }).eq("id", id)); },
+    async deleteGroceryItem(id) { ok(await sb.from("grocery_items").delete().eq("id", id)); },
+    async deleteGroceryItems(ids) { if (ids.length) ok(await sb.from("grocery_items").delete().in("id", ids)); },
     async uploadImage(file) {
       const blob = await shrinkImage(file);
       const path = `${user.id}/${Date.now()}.jpg`;
@@ -78,7 +90,7 @@ async function supabaseStore() {
     /** Live updates: calls onChange whenever any shared table changes (needs Realtime enabled — see 003_realtime.sql). */
     subscribe(onChange) {
       const ch = sb.channel("kitchen-sync");
-      for (const table of ["recipes", "ingredients", "steps", "pins", "ratings", "profiles", "families"])
+      for (const table of ["recipes", "ingredients", "steps", "pins", "ratings", "profiles", "families", "grocery_items"])
         ch.on("postgres_changes", { event: "*", schema: "public", table }, () => onChange(table));
       ch.subscribe();
       return () => sb.removeChannel(ch);
@@ -89,6 +101,25 @@ async function supabaseStore() {
         let msg = error.message;
         if (error.name === "FunctionsFetchError" || /failed to send/i.test(msg)) msg = "Link import isn't reachable — the import-recipe function may not be deployed yet. Use “Paste recipe text” for now.";
         else if (error.context?.status === 404) msg = "Link import isn't set up yet (import-recipe function not found).";
+        else try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
+        throw new Error(msg);
+      }
+      if (data?.error) throw new Error(data.error);
+      return data.recipe;
+    },
+    async importPhoto(file) {
+      const blob = await shrinkImage(file, 1200);
+      const image = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result).split(",")[1]);
+        fr.onerror = () => rej(new Error("Couldn't read that photo"));
+        fr.readAsDataURL(blob);
+      });
+      const { data, error } = await sb.functions.invoke("import-recipe-photo", { body: { image, media_type: "image/jpeg" } });
+      if (error) {
+        let msg = error.message;
+        if (error.name === "FunctionsFetchError" || /failed to send/i.test(msg)) msg = "Photo import isn't reachable — the import-recipe-photo function may not be deployed yet.";
+        else if (error.context?.status === 404) msg = "Photo import isn't set up yet (import-recipe-photo function not found).";
         else try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
         throw new Error(msg);
       }
@@ -137,6 +168,7 @@ function demoStore() {
   }
   const pins = new Map();
   const ratings = [];
+  let grocery = [];
   const listRow = ({ ingredients, steps, ...r }) => ({ ...r, ingredient_names: ingredients.map((i) => i.name.toLowerCase()).join(" · ") });
   const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
@@ -152,7 +184,7 @@ function demoStore() {
       await ensure();
       return { ingredients: recipes.flatMap((r) => r.ingredients.map((i) => ({ ...i, recipe_id: r.id }))),
         steps: recipes.flatMap((r) => r.steps.map((x) => ({ ...x, recipe_id: r.id }))),
-        recipes: recipes.map(listRow).sort((a, b) => b.created_at.localeCompare(a.created_at)), pins: new Map(pins), ratings: ratings.map((r) => ({ ...r })), profiles: people.map((p) => ({ ...p })), families: fam.map((f) => ({ ...f })) };
+        recipes: recipes.map(listRow).sort((a, b) => b.created_at.localeCompare(a.created_at)), pins: new Map(pins), ratings: ratings.map((r) => ({ ...r })), profiles: people.map((p) => ({ ...p })), families: fam.map((f) => ({ ...f })), grocery: grocery.map((g) => ({ ...g })) };
     },
     async getRecipe(id) { await ensure(); return structuredClone(recipes.find((r) => r.id === id)); },
     async saveRecipe(p) {
@@ -172,11 +204,28 @@ function demoStore() {
       if (score) ratings.push({ user_id: "me", recipe_id: id, score });
     },
     async updateProfile(patch) { Object.assign(people[0], patch); },
-    async createFamily(name, color) { const f = { id: uid(), name, color }; fam.push(f); return f; },
+    async addGroceryItems(items) {
+      await wait(60);
+      const now = Date.now();
+      grocery.push(...items.map((it, i) => ({ id: uid(), name: it.name, quantity: it.quantity || null, unit: it.unit || null, note: it.note || null,
+        recipe_id: it.recipe_id || null, recipe_title: it.recipe_title || null, source: it.source || "recipe", position: it.position || 0,
+        checked: false, created_at: new Date(now + i).toISOString() })));
+    },
+    async addGroceryItem(name) {
+      await wait(60);
+      grocery.push({ id: uid(), name, quantity: null, unit: null, note: null, recipe_id: null, recipe_title: null, source: "manual", position: 0, checked: false, created_at: new Date().toISOString() });
+    },
+    async setGroceryChecked(id, checked) { const it = grocery.find((g) => g.id === id); if (it) it.checked = checked; },
+    async deleteGroceryItem(id) { grocery = grocery.filter((g) => g.id !== id); },
+    async deleteGroceryItems(ids) { grocery = grocery.filter((g) => !ids.includes(g.id)); },
     async uploadImage(file) { return new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(file); }); },
     async importUrl() {
       await wait(500);
       throw new Error("Link import runs through Supabase — connect config.js to turn it on. Meanwhile, paste the recipe text below.");
+    },
+    async importPhoto() {
+      await wait(500);
+      throw new Error("Photo import runs through Supabase — connect config.js to turn it on. Meanwhile, type in what you can read from the photo.");
     },
   };
 }
