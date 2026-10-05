@@ -382,6 +382,46 @@ svg.i.fill{fill:currentColor}
 .credit{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);background:var(--butter-soft);border-radius:999px;padding:4px 11px;font-weight:600}
 .item-notes{margin-top:10px;padding:10px 14px;border-radius:14px;background:var(--butter-soft);color:#6E5418;font-size:14.5px;line-height:1.45;white-space:pre-wrap}
 
+/* ---------- admin ---------- */
+.ad-fam{padding:12px 16px}
+.ad-fam+.ad-fam{border-top:1px solid var(--line)}
+.ad-fam h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:16px;font-weight:650}
+.ad-fam h3 small{margin-left:auto;font-weight:500;color:var(--ink-3);font-size:13px}
+.ad-mem{display:flex;align-items:center;gap:8px;font-size:14.5px;color:var(--ink-2);padding:3px 0 3px 20px;word-break:break-all}
+.ad-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--butter-soft);color:#96701A;border-radius:999px;padding:2px 8px;flex:none}
+.ad-result{background:var(--mint-soft);border-radius:var(--r);padding:16px 18px;margin-top:18px;line-height:1.55}
+.ad-result h3{margin:0 0 8px;font-size:18px;color:var(--mint-deep)}
+.ad-result code{display:block;background:var(--surface);border-radius:10px;padding:8px 12px;margin:4px 0 8px;font-size:15px;word-break:break-all;user-select:all}
+
+/* ---------- share & roulette sheets ---------- */
+.sheet.roulette{z-index:45}
+.sheet.share{z-index:70}
+.rl-pool{margin:6px 2px 10px;font-size:15px;color:var(--ink-2);line-height:1.45}
+.rl-pool b{color:var(--ink)}
+.rl-tips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.rl-seg{display:flex;width:100%;margin-bottom:16px}
+.rl-seg button{flex:1}
+.rl-slot{display:flex;align-items:center;gap:6px;min-height:72px;padding:4px 10px 4px 4px;margin-bottom:10px;background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+.rl-slot.locked{box-shadow:0 0 0 2px var(--peach),var(--shadow-sm)}
+.rl-slot.empty{opacity:.65;padding-left:12px;gap:12px}
+.rl-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:6px 8px;text-align:left}
+.rl-slot .tn{width:52px;height:52px;border-radius:14px;overflow:hidden;flex:none;display:block;font-size:26px}
+.rl-slot .tn img{width:100%;height:100%;object-fit:cover}
+.rl-slot .mid{flex:1;min-width:0}
+.rl-slot h3{font-size:16px;line-height:1.25;font-weight:650;margin:0 0 3px}
+.rl-slot .meta{font-size:13px;color:var(--ink-3)}
+.rl-slot .circle-btn{flex:none}
+.rl-slot .circle-btn.on{background:var(--peach-soft);color:#B8583A}
+.rl-q{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--bg-2);font-size:26px;font-weight:700;color:var(--ink-3);flex:none}
+.rl-reel{height:72px;overflow:hidden;margin-bottom:10px;position:relative;background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+.rl-reel::before,.rl-reel::after{content:"";position:absolute;left:0;right:0;height:18px;z-index:2;pointer-events:none}
+.rl-reel::before{top:0;background:linear-gradient(var(--surface),transparent)}
+.rl-reel::after{bottom:0;background:linear-gradient(transparent,var(--surface))}
+.rl-strip{transition-property:transform;transition-timing-function:cubic-bezier(.12,.7,.15,1)}
+.rl-cell{height:72px;display:flex;align-items:center;justify-content:center;padding:0 18px;font-size:18px;font-weight:650;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-spin{margin-top:6px}
+.rl-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
 /* ---------- grocery ---------- */
 .grocery-add{display:flex;align-items:center;gap:8px;margin:4px 0 16px}
 .grocery-add input{flex:1}
@@ -439,6 +479,8 @@ svg.i.fill{fill:currentColor}
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
   <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 12.2A2 2 0 0 0 9.4 18H18a2 2 0 0 0 2-2l1.2-7H6"/><circle cx="9.5" cy="21" r="1.4"/><circle cx="17.5" cy="21" r="1.4"/></symbol>
+  <symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".6"/><circle cx="15" cy="9" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="9" cy="15" r=".6"/><circle cx="15" cy="15" r=".6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
 </svg>
 
 <div id="boot" class="boot"><div class="logo">🍑</div></div>
@@ -477,7 +519,10 @@ svg.i.fill{fill:currentColor}
     <!-- Recipes -->
     <section class="view" id="view-recipes" data-view="recipes">
       <div class="nav-top"><span class="eyebrow">🍑 Eckert Haus</span>
-        <button class="circle-btn primary" data-act="new" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <span style="display:flex;gap:8px">
+          <button class="circle-btn" data-act="roulette" aria-label="Meal roulette" title="Meal roulette — spins from your filters"><svg class="i"><use href="#i-dice"/></svg></button>
+          <button class="circle-btn primary" data-act="new" aria-label="Add recipe"><svg class="i"><use href="#i-plus"/></svg></button>
+        </span></div>
       <h1 class="large-title">Recipes</h1>
       <label class="search"><svg class="i sm"><use href="#i-search"/></svg>
         <input id="q" type="search" placeholder="Search recipes, ingredients, tags" autocomplete="off" enterkeyhint="search"></label>
@@ -557,7 +602,10 @@ svg.i.fill{fill:currentColor}
 
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="detailSheet" role="dialog" aria-modal="true" aria-label="Recipe"></div>
+<div class="sheet roulette" id="rouletteSheet" role="dialog" aria-modal="true" aria-label="Meal roulette"></div>
 <div class="sheet editor" id="editorSheet" role="dialog" aria-modal="true" aria-label="Edit recipe"></div>
+<div class="sheet share" id="shareSheet" role="dialog" aria-modal="true" aria-label="Send recipe"></div>
+<div class="sheet admin" id="adminSheet" role="dialog" aria-modal="true" aria-label="Families and logins"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="photoInput" accept="image/*" hidden>
 

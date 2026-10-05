@@ -10,6 +10,18 @@ async function supabaseStore() {
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, detectSessionInUrl: true } });
   const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
   let user = null;
+  const adminCall = async (body) => {
+    const { data, error } = await sb.functions.invoke("admin-users", { body });
+    if (error) {
+      let msg = error.message;
+      if (error.name === "FunctionsFetchError" || /failed to send/i.test(msg)) msg = "The admin-users function isn't reachable — has it been deployed yet?";
+      else if (error.context?.status === 404) msg = "The admin-users function isn't deployed yet (see the setup guide).";
+      else try { msg = (await error.context.json()).error || msg; } catch { /* keep generic */ }
+      throw new Error(msg);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
 
   return {
     mode: "supabase",
@@ -78,6 +90,11 @@ async function supabaseStore() {
       }))));
     },
     async addGroceryItem(name) { ok(await sb.from("grocery_items").insert({ name, source: "manual" })); },
+    async isAdmin() { try { return ok(await sb.rpc("is_admin")) === true; } catch { return false; } },
+    async adminList() { return (await adminCall({ action: "list" })).families; },
+    async adminCreateUser(payload) { return adminCall({ action: "create", ...payload }); },
+    async shareTargets() { return ok(await sb.rpc("share_targets")) || []; },
+    async shareRecipe(id, familyId) { return ok(await sb.rpc("share_recipe", { p_recipe: id, p_family: familyId })); },
     async setGroceryChecked(id, checked) { ok(await sb.from("grocery_items").update({ checked }).eq("id", id)); },
     async deleteGroceryItem(id) { ok(await sb.from("grocery_items").delete().eq("id", id)); },
     async deleteGroceryItems(ids) { if (ids.length) ok(await sb.from("grocery_items").delete().in("id", ids)); },
@@ -196,6 +213,11 @@ function demoStore() {
       await wait(60);
       grocery.push({ id: uid(), name, quantity: null, unit: null, note: null, recipe_id: null, recipe_title: null, source: "manual", position: 0, checked: false, created_at: new Date().toISOString() });
     },
+    async isAdmin() { return false; },
+    async adminList() { return []; },
+    async adminCreateUser() { throw new Error("Creating logins needs Supabase — connect config.js first."); },
+    async shareTargets() { return [{ id: "demo-2", name: "Demo Cousins", color: "#9ED9C3" }]; },
+    async shareRecipe() { await wait(300); return uid(); },
     async setGroceryChecked(id, checked) { const it = grocery.find((g) => g.id === id); if (it) it.checked = checked; },
     async deleteGroceryItem(id) { grocery = grocery.filter((g) => g.id !== id); },
     async deleteGroceryItems(ids) { grocery = grocery.filter((g) => !ids.includes(g.id)); },
