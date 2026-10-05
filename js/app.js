@@ -52,7 +52,7 @@ function toast(msg) {
 // ------------------------------------------------------------------ state
 let store;
 const S = {
-  me: null, recipes: [], pins: new Map(), ratings: [], profiles: [], families: [], grocery: [],
+  me: null, recipes: [], pins: new Map(), ratings: [], profiles: [], families: [], grocery: [], admin: false,
   tab: "recipes", q: "", filters: {}, filterOpen: false, openGroups: new Set(["course"]),
   famTab: "all", detail: null, scale: 1, checked: new Set(), wake: null,
   sort: "category", dir: 1, open: new Set(), sec: new Map(), ck: new Set(), details: new Map(),
@@ -310,6 +310,7 @@ function miniHearts(avg) {
 }
 
 function renderMe() {
+  if (document.activeElement?.id === "mePw") return; // don't wipe a password mid-typing when a sync re-renders
   const me = S.me, fam = family(me.family_id);
   const mine = S.ratings.filter((r) => r.user_id === me.id).length;
   const added = S.recipes.filter((r) => r.created_by === me.id).length;
@@ -320,6 +321,10 @@ function renderMe() {
     <div class="group-title">Your name</div>
     <div class="group"><div class="row"><input id="meName" value="${h(me.display_name)}" placeholder="What the family calls you" autocomplete="nickname"></div></div>
     <p class="hint">${fam ? `You're signed in as part of the ${h(fam.name)} family's recipe box — everything here is separate from other families' books.` : ""}</p>
+    <div class="group-title">Password</div>
+    <div class="group"><div class="row"><input id="mePw" type="password" autocomplete="new-password" minlength="8" placeholder="New password (8+ characters)"><button class="btn soft sm" data-act="save-password">Save</button></div></div>
+    ${S.admin ? `<div class="group-title">Admin</div>
+    <div class="group"><button class="row" style="width:100%" data-act="open-admin">${icon("users", "sm")}<span style="flex:1;text-align:left;font-weight:600">Families &amp; logins</span><span style="color:var(--ink-3);font-size:14px">Add a login</span></button></div>` : ""}
     <div class="group-title">App</div>
     <div class="group">
       <div class="row" style="color:var(--ink-2);font-size:15px;padding:12px 16px;line-height:1.45">${icon("share", "sm")}<span>On iPhone: tap Share → <b>Add to Home Screen</b> for a full-screen app.</span></div>
@@ -451,7 +456,7 @@ async function route() {
   if (a === "r" && b) { closeSheet("editorSheet"); await openDetail(b); }
   else if (a === "new") await openEditor(null);
   else if (a === "edit" && b) await openEditor(b);
-  else { closeSheet("editorSheet"); closeSheet("detailSheet"); showTab(a || "recipes"); }
+  else { closeSheet("adminSheet"); closeSheet("shareSheet"); closeSheet("editorSheet"); closeSheet("detailSheet"); showTab(a || "recipes"); }
 }
 window.addEventListener("hashchange", route);
 
@@ -756,6 +761,222 @@ async function deleteRecipe() {
   } catch (e) { toast(e.message); }
 }
 
+// ------------------------------------------------------------------ send a recipe to another family
+let shareTargets = [];
+const shareBar = () => `<div class="sheet-bar"><button class="bar-btn l" data-act="close-share">Cancel</button><h2>Send recipe</h2><span></span></div>`;
+const shareErr = (m) => (/function|schema cache|share_/i.test(m) ? "Sending isn't set up yet — run 006_share_recipes.sql in Supabase" : m);
+
+async function openShare() {
+  if (!S.detail) return;
+  const sheet = $("#shareSheet");
+  sheet.innerHTML = `${shareBar()}<div class="sheet-body"><div class="skeleton" style="height:120px;border-radius:24px;margin-top:16px"></div></div>`;
+  sheet.scrollTop = 0;
+  openSheet("shareSheet");
+  try { shareTargets = await store.shareTargets(); }
+  catch (e) { shareTargets = []; toast(shareErr(e.message)); }
+  renderShare();
+}
+function renderShare() {
+  const r = S.detail; if (!r) return;
+  $("#shareSheet").innerHTML = `${shareBar()}<div class="sheet-body">
+    <p class="hint" style="margin:14px 4px 0">Sends a copy of <b>${h(r.title)}</b> — ingredients, steps and photo — straight into their recipe box. Your copy stays put, and edits on either side won't affect the other.</p>
+    <div class="group-title">Send to</div>
+    <div class="group">${shareTargets.length
+      ? shareTargets.map((f) => `<button class="row" style="width:100%" data-sharefam="${f.id}"><span class="dot" style="background:${f.color}"></span><span style="flex:1;text-align:left">${h(f.name)} family</span>${icon("share", "sm")}</button>`).join("")
+      : `<div class="row" style="color:var(--ink-3);padding:14px 16px;line-height:1.45">No other families yet. Once another family has a login (see the setup guide), they'll show up here.</div>`}</div>
+    <div class="group-title">Someone not on the app?</div>
+    <div class="group"><button class="row" style="width:100%" data-act="share-text"><span style="flex:1;text-align:left">Share as text…</span>${icon("share", "sm")}</button></div>
+  </div>`;
+}
+async function doShare(famId) {
+  const r = S.detail, f = shareTargets.find((x) => x.id === famId);
+  if (!r || !f) return;
+  const btn = $(`[data-sharefam="${famId}"]`); btn?.setAttribute("disabled", "");
+  try {
+    const id = await store.shareRecipe(r.id, famId);
+    closeSheet("shareSheet");
+    toast(id ? `Sent “${r.title}” to the ${f.name} family 📨` : `The ${f.name} family already has “${r.title}”`);
+  } catch (e) { btn?.removeAttribute("disabled"); toast(shareErr(e.message)); }
+}
+function shareAsText() {
+  const r = S.detail; if (!r) return;
+  const meta = [r.servings && `Serves ${r.servings}`, totalOf(r) && `Total ${fmtMin(totalOf(r))}`].filter(Boolean).join(" · ");
+  const text = [r.title, r.description, meta].filter(Boolean).join("\n")
+    + `\n\nINGREDIENTS\n${ingredientsToText(r.ingredients)}\n\nINSTRUCTIONS\n${stepsToText(r.steps)}`
+    + (r.notes ? `\n\nNOTES\n${r.notes}` : "") + (r.credit ? `\n\nFrom ${r.credit}` : "");
+  closeSheet("shareSheet");
+  if (navigator.share) return navigator.share({ title: r.title, text }).catch(() => {});
+  navigator.clipboard?.writeText(text).then(() => toast("Recipe copied"), () => toast("Couldn't copy — try again"));
+}
+
+// ------------------------------------------------------------------ meal roulette
+const RL = { n: 1, slots: [], spinning: false };
+const RL_H = 72; // keep in sync with .rl-reel / .rl-cell height in index.html
+const rlPool = () => S.recipes.filter((r) => matches(r));
+const rlPicks = () => RL.slots.map((x) => x.id).filter((id) => id && byId(id));
+const rlShuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function rlSlotHtml(sl, i) {
+  const r = sl.id && byId(sl.id);
+  if (!r) return `<div class="rl-slot empty"><span class="rl-q">?</span><span class="mid"><h3>Meal ${i + 1}</h3><span class="meta">Tap spin</span></span></div>`;
+  return `<div class="rl-slot ${sl.locked ? "locked" : ""}">
+    <button class="rl-main" data-open="${r.id}"><span class="tn">${thumb(r)}</span><span class="mid"><h3>${h(r.title)}</h3><span class="meta">${metaLine(r)}</span></span></button>
+    <button class="circle-btn sm ${sl.locked ? "on" : ""}" data-rlock="${i}" aria-pressed="${!!sl.locked}" aria-label="${sl.locked ? "Unlock" : "Keep"} this meal">${icon("lock", "sm")}</button>
+    <button class="circle-btn sm" data-rroll="${i}" aria-label="Re-roll this meal">${icon("dice", "sm")}</button>
+  </div>`;
+}
+function openRoulette() {
+  RL.slots = []; RL.spinning = false;
+  renderRoulette();
+  $("#rouletteSheet").scrollTop = 0;
+  openSheet("rouletteSheet");
+}
+function renderRoulette() {
+  const sheet = $("#rouletteSheet"), y = sheet.scrollTop;
+  const pool = rlPool(), n = Math.min(RL.n, pool.length);
+  if (RL.slots.length !== n) RL.slots = Array.from({ length: n }, () => ({ id: null, locked: false }));
+  const picks = rlPicks();
+  const sum = [S.q && `“${S.q}”`, ...Object.values(S.filters).flatMap((set) => [...set])].filter(Boolean);
+  sheet.innerHTML = `
+    <div class="sheet-bar"><button class="bar-btn l strong" data-act="close-roulette">Done</button><h2>Meal Roulette</h2><span></span></div>
+    <div class="sheet-body">
+      <p class="rl-pool"><b>${pool.length}</b> recipe${pool.length === 1 ? "" : "s"} in the mix${sum.length ? ` · ${sum.map(h).join(", ")}` : " · no filters set, so everything's fair game"}${pool.length && RL.n > pool.length ? ` · only ${pool.length} to pick from` : ""}</p>
+      <div class="rl-tips">${S.filters.course?.size ? "" : `<button class="chip" data-act="rl-mains">${icon("bowl", "sm")} Entrées only</button>`}<button class="chip" data-act="rl-filters">${icon("sliders", "sm")} Edit filters</button></div>
+      <div class="segmented rl-seg" role="group" aria-label="How many meals">${[[1, "Tonight"], [3, "3 meals"], [5, "5 meals"], [7, "7 meals"]].map(([v, l]) => `<button data-rln="${v}" aria-pressed="${RL.n === v}">${l}</button>`).join("")}</div>
+      ${pool.length ? `<div id="rlSlots">${RL.slots.map(rlSlotHtml).join("")}</div>
+        <button class="btn primary block rl-spin" data-act="rl-spin">${icon("dice")} ${picks.length ? "Spin again" : "Spin"}</button>
+        ${picks.length ? `<div class="rl-actions"><button class="btn mint sm" data-act="rl-groc">${icon("cart", "sm")} Add all to grocery list</button><button class="btn soft sm" data-act="rl-pin">${icon("pin", "sm")} Pin all</button></div>
+          <p class="hint" style="margin:12px 2px 0">Tap a meal to open it · the lock keeps it when you spin again · the dice re-rolls just that one.</p>` : ""}`
+        : emptyState("🔍", "Nothing matches", "Loosen your filters and try again.")}
+    </div>`;
+  sheet.scrollTop = y;
+}
+function spinRoulette(only = null) {
+  if (RL.spinning) return;
+  const pool = rlPool();
+  if (!pool.length) return toast("Nothing matches your filters yet");
+  const n = Math.min(RL.n, pool.length);
+  if (RL.slots.length !== n) RL.slots = Array.from({ length: n }, () => ({ id: null, locked: false }));
+
+  const idxs = only != null ? [only] : RL.slots.map((_, i) => i).filter((i) => !RL.slots[i].locked);
+  if (!idxs.length) return toast("Everything's locked — unlock one to spin");
+  const held = new Set(RL.slots.filter((x, i) => x.id && !idxs.includes(i)).map((x) => x.id));
+  const prev = new Set(idxs.map((i) => RL.slots[i].id).filter(Boolean));
+  let avail = rlShuffle(pool.filter((r) => !held.has(r.id)));
+  const fresh = avail.filter((r) => !prev.has(r.id)); // prefer something new when there's enough to choose from
+  if (fresh.length >= idxs.length) avail = fresh;
+  else if (only != null && fresh.length) avail = fresh;
+  else if (only != null) return toast("That's the only match — loosen your filters for more options");
+  const spun = idxs.slice(0, avail.length);
+  const winners = avail.slice(0, spun.length);
+  spun.forEach((si, k) => { RL.slots[si].id = winners[k].id; });
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  RL.spinning = true;
+  const CELLS = 14;
+  const reels = new Map(spun.map((si, k) => [si, {
+    titles: [...Array.from({ length: CELLS - 1 }, () => pool[Math.floor(Math.random() * pool.length)].title), winners[k].title],
+    dur: 1.1 + k * 0.3,
+  }]));
+  $("#rlSlots").innerHTML = RL.slots.map((x, i) => {
+    const rv = reels.get(i);
+    return rv ? `<div class="rl-reel" aria-hidden="true"><div class="rl-strip" style="transition-duration:${rv.dur}s">${rv.titles.map((t) => `<div class="rl-cell">${h(t)}</div>`).join("")}</div></div>` : rlSlotHtml(x, i);
+  }).join("");
+  $$("#rlSlots .rl-strip").forEach((el) => requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transform = `translateY(-${(CELLS - 1) * RL_H}px)`; })));
+  const longest = Math.max(...[...reels.values()].map((v) => v.dur));
+  setTimeout(() => { RL.spinning = false; renderRoulette(); navigator.vibrate?.(25); }, reduce ? 0 : longest * 1000 + 120);
+}
+async function pinPicks() {
+  const ids = rlPicks().filter((id) => !S.pins.has(id));
+  if (!ids.length) return toast("Those are already pinned");
+  const now = new Date().toISOString();
+  ids.forEach((id) => S.pins.set(id, now));
+  renderHome(); renderPinned();
+  toast(`Pinned ${ids.length} meal${ids.length === 1 ? "" : "s"} 📌`);
+  try { await Promise.all(ids.map((id) => store.setPin(id, true))); } catch (e) { toast(e.message); }
+}
+
+// ------------------------------------------------------------------ change my own password
+async function savePassword() {
+  const el = $("#mePw"), pw = el.value;
+  if (pw.length < 8) { toast("Use at least 8 characters"); return el.focus(); }
+  try { await store.updatePassword(pw); el.value = ""; el.blur(); toast("Password saved 🔒"); }
+  catch (e) { toast(friendly(e.message)); }
+}
+
+// ------------------------------------------------------------------ admin: families & logins
+const AD = { families: [], result: null };
+const adBar = () => `<div class="sheet-bar"><button class="bar-btn l strong" data-act="close-admin">Done</button><h2>Families &amp; logins</h2><span></span></div>`;
+function genPassword() {
+  const abc = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"; // no look-alikes (0/O, 1/l/I)
+  const buf = crypto.getRandomValues(new Uint32Array(12));
+  return [...buf].map((n) => abc[n % abc.length]).join("");
+}
+async function openAdmin() {
+  const sheet = $("#adminSheet");
+  AD.result = null;
+  sheet.innerHTML = `${adBar()}<div class="sheet-body"><div class="skeleton" style="height:160px;border-radius:24px;margin-top:16px"></div></div>`;
+  sheet.scrollTop = 0;
+  openSheet("adminSheet");
+  try { AD.families = await store.adminList(); renderAdmin(); }
+  catch (e) { sheet.innerHTML = `${adBar()}<div class="sheet-body">${emptyState("🔌", "Couldn't load", h(e.message))}</div>`; }
+}
+function renderAdmin() {
+  const mine = family(S.me.family_id);
+  const famList = AD.families.map((f) => `<div class="ad-fam"><h3><span class="dot" style="background:${h(f.color)}"></span>${h(f.name)}<small>${f.recipes} recipe${f.recipes === 1 ? "" : "s"}</small></h3>
+    ${f.members.length ? f.members.map((m) => `<div class="ad-mem">${h(m.email)}${m.is_admin ? `<span class="ad-tag">Admin</span>` : ""}</div>`).join("") : `<div class="ad-mem" style="color:var(--ink-3)">No logins yet</div>`}</div>`).join("");
+  const r = AD.result;
+  const body = r ? `<div class="ad-result"><h3>Login created ✅</h3>
+      <div>${h(r.family.name)} family${r.created ? " (new)" : ""}${r.copied ? ` · copied ${r.copied} recipe${r.copied === 1 ? "" : "s"}` : ""}</div>
+      <code>${h(r.email)}</code><code>${h(r.password)}</code>
+      ${r.copy_error ? `<p class="hint" style="margin:0 0 8px;color:var(--blush-deep)">The login was created, but copying recipes failed: ${h(r.copy_error)}</p>` : ""}
+      <p class="hint" style="margin:0 0 12px">This is the only time the password is shown. They can change it under Me → Password, or use “Forgot password?” on the sign-in screen.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn mint sm" data-act="admin-copy-invite">${icon("share", "sm")} Copy invite message</button><button class="btn soft sm" data-act="admin-again">Add another</button></div></div>`
+    : `<div class="group-title">Add a login</div>
+      <div class="group">
+        <div class="row"><label for="adFam">Family</label><select id="adFam"><option value="__new">New family…</option>${AD.families.map((f) => `<option value="${h(f.id)}">${h(f.name)}</option>`).join("")}</select></div>
+        <div class="row" id="adFamRow"><label for="adFamName">Family name</label><input id="adFamName" placeholder="e.g. Smith" autocapitalize="words" autocomplete="off"></div>
+        <div class="row"><label for="adEmail">Email</label><input id="adEmail" type="email" inputmode="email" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="name@example.com"></div>
+        <div class="row"><label for="adName">Name</label><input id="adName" placeholder="Optional" autocapitalize="words" autocomplete="off"></div>
+        <div class="row"><label for="adPw">Password</label><input id="adPw" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="8+ characters"><button class="btn soft sm" data-act="admin-gen-pw">Generate</button></div>
+        ${mine ? `<label class="row" id="adCopyRow"><input type="checkbox" id="adCopy" style="flex:none;width:20px;height:20px;padding:0"><span style="flex:1;line-height:1.35;padding:10px 0">Start them with a copy of the ${h(mine.name)} recipe book</span></label>` : ""}
+      </div>
+      <p class="hint">Creates a confirmed login right away — no email needed. Pick an existing family to add another login to it (they share one recipe box).</p>
+      <button class="btn primary block" style="margin-top:16px" data-act="admin-create">Create login</button>`;
+  const sheet = $("#adminSheet");
+  sheet.innerHTML = `${adBar()}<div class="sheet-body"><div class="group-title" style="margin-top:14px">Families</div><div class="group">${famList || `<div class="ad-fam" style="color:var(--ink-3)">No families yet</div>`}</div>${body}</div>`;
+}
+document.addEventListener("change", (e) => {
+  if (e.target.id !== "adFam") return;
+  const isNew = e.target.value === "__new";
+  $("#adFamRow").hidden = !isNew;
+  if ($("#adCopyRow")) $("#adCopyRow").hidden = !isNew;
+});
+async function adminCreate() {
+  const isNew = $("#adFam").value === "__new";
+  const payload = {
+    email: $("#adEmail").value.trim().toLowerCase(), display_name: $("#adName").value.trim(), password: $("#adPw").value,
+    ...(isNew ? { family_name: $("#adFamName").value.trim(), copy_from: $("#adCopy")?.checked ? S.me.family_id : null } : { family_id: $("#adFam").value }),
+  };
+  if (isNew && !payload.family_name) { toast("Give the new family a name"); return $("#adFamName").focus(); }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) { toast("That doesn't look like a valid email"); return $("#adEmail").focus(); }
+  if (payload.password.length < 8) { toast("Password needs at least 8 characters — tap Generate for one"); return $("#adPw").focus(); }
+  const btn = $('[data-act="admin-create"]'); busy(btn, true);
+  try {
+    const out = await store.adminCreateUser(payload);
+    AD.result = { ...out, password: payload.password, created: isNew };
+    AD.families = await store.adminList().catch(() => AD.families);
+    $("#adminSheet").scrollTop = 0;
+    renderAdmin();
+  } catch (e) { busy(btn, false, "Create login"); toast(e.message); }
+}
+async function copyInvite() {
+  const r = AD.result; if (!r) return;
+  const text = `You're in! 🍑\nOpen ${location.origin} and sign in:\n\nEmail: ${r.email}\nPassword: ${r.password}\n\nOnce you're in, you can change your password under Me → Password.`;
+  if (navigator.share) { try { await navigator.share({ title: "Eckert Haus Kitchen login", text }); } catch { /* cancelled */ } return; }
+  try { await navigator.clipboard.writeText(text); toast("Invite copied"); } catch { toast("Couldn't copy — select the text above instead"); }
+}
+
 // ------------------------------------------------------------------ events
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button, [data-open], [data-act], [data-ck]");
@@ -782,6 +1003,10 @@ document.addEventListener("click", async (e) => {
   if (d.groc) return addRecipeToGrocery(d.groc);
   if (d.gck) return toggleGroceryChecked(d.gck);
   if (d.gdel) return deleteGroceryItem(d.gdel);
+  if (d.sharefam) return doShare(d.sharefam);
+  if (d.rln) { RL.n = +d.rln; RL.slots = []; return renderRoulette(); }
+  if (d.rlock) { const sl = RL.slots[+d.rlock]; if (sl?.id) sl.locked = !sl.locked; return renderRoulette(); }
+  if (d.rroll) return spinRoulette(+d.rroll);
 
   switch (d.act) {
     case "new": return go("#/new");
@@ -792,11 +1017,26 @@ document.addEventListener("click", async (e) => {
     case "pin": return togglePin(S.detail.id);
     case "edit": return go("#/edit/" + S.detail.id);
     case "wake": return toggleWake();
-    case "share": {
-      const url = `${location.origin}${location.pathname}#/r/${S.detail.id}`;
-      if (navigator.share) return navigator.share({ title: S.detail.title, url }).catch(() => {});
-      await navigator.clipboard?.writeText(url); return toast("Link copied");
-    }
+    case "share": return openShare();
+    case "open-admin": return openAdmin();
+    case "close-admin": return closeSheet("adminSheet");
+    case "admin-gen-pw": { const el = $("#adPw"); if (el) el.value = genPassword(); return; }
+    case "admin-create": return adminCreate();
+    case "admin-copy-invite": return copyInvite();
+    case "admin-again": AD.result = null; return renderAdmin();
+    case "save-password": return savePassword();
+    case "close-share": return closeSheet("shareSheet");
+    case "share-text": return shareAsText();
+    case "roulette": return openRoulette();
+    case "close-roulette": return closeSheet("rouletteSheet");
+    case "rl-spin": return spinRoulette();
+    case "rl-mains": S.filters.course = new Set(["Entree"]); RL.slots = []; renderHome(); return renderRoulette();
+    case "rl-filters":
+      closeSheet("rouletteSheet"); S.filterOpen = true;
+      $("#filterWrap").classList.add("open"); $("#filterToggle").setAttribute("aria-expanded", "true");
+      return window.scrollTo({ top: 0, behavior: "smooth" });
+    case "rl-groc": return pushRecipesToGrocery(rlPicks(), `Added ingredients for ${rlPicks().length} meal${rlPicks().length === 1 ? "" : "s"} 🧺`);
+    case "rl-pin": return pinPicks();
     case "cancel-edit": return back(E?.id ? "#/r/" + E.id : "#/" + S.tab);
     case "save": return saveRecipe();
     case "delete": return deleteRecipe();
@@ -875,7 +1115,11 @@ $("#filterToggle").addEventListener("click", () => {
   $("#filterToggle").setAttribute("aria-expanded", S.filterOpen);
 });
 $("#scrim").addEventListener("click", () => {
+  if ($("#shareSheet").classList.contains("open")) return closeSheet("shareSheet");
+  if ($("#adminSheet").classList.contains("open")) return closeSheet("adminSheet");
   if ($("#editorSheet").classList.contains("open")) return;
+  if ($("#detailSheet").classList.contains("open")) return back("#/" + S.tab);
+  if ($("#rouletteSheet").classList.contains("open")) return closeSheet("rouletteSheet");
   back("#/" + S.tab);
 });
 $("#photoInput").addEventListener("change", async (e) => {
@@ -909,6 +1153,7 @@ async function enter() {
   }
   entered = true;
   S.me = await store.me();
+  S.admin = await store.isAdmin();
   await reload();
   $("#auth").hidden = true; $("#app").hidden = false; $("#boot").hidden = true;
   await route();
