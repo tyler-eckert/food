@@ -651,12 +651,12 @@ html.ro .action-row{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))}
     <!-- Bar: cocktails + wine vault -->
     <section class="view" id="view-bar" data-view="bar" hidden>
       <div class="nav-top"><span class="eyebrow" style="color:var(--blush-deep)">🍸 Eckert Haus Bar</span>
-        <button class="circle-btn primary" id="barNew" data-act="bar-new" aria-label="Add a cocktail"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <button class="circle-btn primary" id="barNew" data-act="bar-new" aria-label="Add a wine"><svg class="i"><use href="#i-plus"/></svg></button></div>
       <h1 class="large-title">Bar</h1>
       <div class="segmented bar-seg" id="barSeg" role="group" aria-label="Bar section">
-        <button data-bar="cocktails" aria-pressed="true">🍸 Cocktails</button><button data-bar="vault" aria-pressed="false">🍷 Wine Vault</button></div>
+        <button data-bar="vault" aria-pressed="true">🍷 Wine Vault</button><button data-bar="cocktails" aria-pressed="false">🍸 Cocktails</button></div>
       <label class="search"><svg class="i sm"><use href="#i-search"/></svg>
-        <input id="bq" type="search" placeholder="Search cocktails, spirits, ingredients" autocomplete="off" enterkeyhint="search"></label>
+        <input id="bq" type="search" placeholder="Search wines, regions, where it's stored" autocomplete="off" enterkeyhint="search"></label>
       <div id="barTools"></div>
       <div id="barList"></div>
     </section>
