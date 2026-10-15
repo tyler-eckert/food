@@ -470,6 +470,31 @@ button.tile{width:100%;font:inherit}
 .garnish{margin:-6px 0 14px;font-size:15px;color:var(--ink-2)}
 .garnish b{color:var(--ink);font-weight:650}
 
+/* ---------- admin: view as family ---------- */
+.view-banner{position:fixed;top:0;left:0;right:0;z-index:35;display:flex;align-items:center;gap:8px;padding:calc(var(--safe-t) + 8px) 12px 8px;
+  background:color-mix(in srgb,var(--fam,var(--lav)) 30%,#fff);border-bottom:1px solid var(--line-2);font-size:14px;box-shadow:0 2px 12px rgba(46,37,48,.08)}
+.vb-dot{width:10px;height:10px;border-radius:50%;background:var(--fam,var(--lav));flex:none;box-shadow:0 0 0 2px #fff}
+.vb-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.vb-txt svg{flex:none;color:var(--ink-2)}
+.vb-txt b{overflow:hidden;text-overflow:ellipsis}
+.vb-mode{flex:none;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface);color:var(--lav-deep)}
+.vb-mode.edit{color:var(--blush-deep)}
+.vb-btn{flex:none;height:30px;padding:0 10px;border-radius:10px;font-size:13.5px;font-weight:650;color:var(--ink-2);background:rgba(255,255,255,.6)}
+.vb-btn.strong{background:var(--ink);color:#fff}
+@media(max-width:400px){.vb-mode{display:none}}
+html.viewing .app{padding-top:calc(var(--safe-t) + 58px)}
+.ad-view{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0 2px 20px}
+.ad-viewing{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px 14px;border-radius:var(--r);background:color-mix(in srgb,var(--fam,var(--lav)) 28%,#fff);line-height:1.35}
+.ad-viewing span{flex:1;display:flex;align-items:center;gap:6px}
+/* read-only: hide everything that writes (the database blocks these too) */
+html.ro [data-act="new"],html.ro [data-act="bar-new"],html.ro [data-edit],html.ro [data-act="edit"],html.ro [data-wedit],html.ro [data-wdrink],
+html.ro .item-actions .stepper,html.ro [data-groc],html.ro [data-act="add-groc"],html.ro [data-act="add-pinned-groc"],html.ro [data-act="add-fav-groc"],
+html.ro .grocery-add,html.ro #groceryFoot .btn.danger,html.ro #clearCheckedBtn,html.ro .g-del,html.ro [data-pin],html.ro [data-act="pin"],
+html.ro [data-act="share"],html.ro [data-act="rl-groc"],html.ro [data-act="rl-pin"]{display:none!important}
+html.ro .hearts,html.ro .g-check{pointer-events:none}
+html.ro .hearts button:not(.on){opacity:.35}
+html.ro .action-row{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))}
+
 /* toast */
 .toast{position:fixed;left:50%;width:max-content;text-align:center;bottom:calc(92px + var(--safe-b));transform:translate(-50%,20px);opacity:0;z-index:90;pointer-events:none;
   background:rgba(46,37,48,.92);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;font-weight:500;max-width:calc(100% - 32px);box-shadow:var(--shadow);transition:.35s var(--ease)}
@@ -517,6 +542,7 @@ button.tile{width:100%;font:inherit}
   <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 12.2A2 2 0 0 0 9.4 18H18a2 2 0 0 0 2-2l1.2-7H6"/><circle cx="9.5" cy="21" r="1.4"/><circle cx="17.5" cy="21" r="1.4"/></symbol>
   <symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".6"/><circle cx="15" cy="9" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="9" cy="15" r=".6"/><circle cx="15" cy="15" r=".6"/></symbol>
   <symbol id="i-glass" viewBox="0 0 24 24"><path d="M7 3h10l-.4 5.2a4.6 4.6 0 0 1-9.2 0z"/><path d="M7.3 7.5h9.4M12 13v7.5M8.5 21h7"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
 </svg>
@@ -553,6 +579,7 @@ button.tile{width:100%;font:inherit}
 
 <!-- ======================= APP ======================= -->
 <div id="app" hidden>
+  <div class="view-banner" id="viewBanner" role="status" hidden></div>
   <main class="app">
     <!-- Recipes -->
     <section class="view" id="view-recipes" data-view="recipes">
