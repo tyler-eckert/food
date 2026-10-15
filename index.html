@@ -433,6 +433,13 @@ svg.i.fill{fill:currentColor}
 .g-txt{flex:1;font-size:15.5px;min-width:0}
 .item.grocery-row.done .g-txt{color:var(--ink-3);text-decoration:line-through}
 .g-del{color:var(--ink-3);flex:none;padding:6px}
+.g-seg{display:flex;width:100%;margin:0 0 14px}
+.g-seg button{flex:1}
+.g-q{font-weight:700;color:#B8583A}
+.g-note{color:var(--ink-3)}
+.g-from{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-n{display:inline-block;font-weight:700;color:var(--mint-deep);background:var(--mint-soft);border-radius:999px;padding:0 6px;margin-right:6px;font-size:11.5px}
+.item.grocery-row.done .g-q{color:var(--ink-3)}
 .grocery-foot{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
 
 /* ---------- bar ---------- */
@@ -638,6 +645,8 @@ html.ro .action-row{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))}
     <section class="view" id="view-grocery" data-view="grocery" hidden>
       <div class="nav-top"><span class="eyebrow">🧺 Shopping</span></div>
       <h1 class="large-title">Grocery List</h1>
+      <div class="segmented g-seg" id="grocSeg" role="group" aria-label="Grocery list view" hidden>
+        <button data-gview="combined" aria-pressed="true">Combined</button><button data-gview="recipe" aria-pressed="false">By recipe</button></div>
       <div class="grocery-add"><input class="field" id="groceryAdd" placeholder="Add an item…" enterkeyhint="done" autocomplete="off">
         <button class="circle-btn primary" data-act="add-grocery-item" aria-label="Add item"><svg class="i"><use href="#i-plus"/></svg></button></div>
       <div id="groceryList"></div>
