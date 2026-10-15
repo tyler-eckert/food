@@ -63,7 +63,7 @@ const S = {
   famTab: "all", detail: null, scale: 1, checked: new Set(), wake: null,
   sort: "category", dir: 1, open: new Set(), sec: new Map(), ck: new Set(), details: new Map(),
   // bar
-  barReady: true, wines: [], wineLog: [], pairings: [], bar: "cocktails", bq: "", spirit: new Set(), wtype: new Set(),
+  barReady: true, wines: [], wineLog: [], pairings: [], bar: "vault", bq: "", spirit: new Set(), wtype: new Set(),
   wgroup: "location", wopen: new Set(), showEmpty: false,
   view: null, // admin "view as family": { family_id, name, color, can_edit }
 };
