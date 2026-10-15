@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Eckert Haus Kitchen</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="The Eckert family recipe box">
+<meta name="description" content="The Eckert family recipe box, bar and wine vault">
 <meta name="theme-color" content="#FFF8F3">
 <meta name="color-scheme" content="light">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -191,6 +191,7 @@ svg.i.fill{fill:currentColor}
 .tabbar .inner{display:flex;width:100%;max-width:520px}
 .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;font-size:11px;font-weight:600;color:var(--ink-3)}
 .tabbar button svg{width:26px;height:26px}
+@media(max-width:380px){.tabbar button{font-size:10.5px}.tabbar button svg{width:24px;height:24px}}
 .tabbar button[aria-current="page"]{color:var(--peach-deep)}
 .tabbar button[aria-current="page"] svg{stroke-width:2.1}
 
@@ -434,6 +435,41 @@ svg.i.fill{fill:currentColor}
 .g-del{color:var(--ink-3);flex:none;padding:6px}
 .grocery-foot{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
 
+/* ---------- bar ---------- */
+.bar-seg{display:flex;width:100%;margin-bottom:12px}
+.bar-seg button{flex:1;height:36px;font-size:15px}
+.bar-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -16px 0;padding:2px 16px}
+.bar-chips::-webkit-scrollbar{display:none}
+.tiles.four{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+.tiles.four .tile{padding:11px 8px;text-align:center}
+.tiles.four b{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tiles.four span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:0;white-space:nowrap}
+button.tile{width:100%;font:inherit}
+.tile.alert{background:var(--peach-soft)}
+.tile.alert b,.tile.alert span{color:#B8583A}
+.qty{display:inline-grid;place-items:center;min-width:34px;height:24px;padding:0 8px;border-radius:12px;background:var(--bg-2);font:800 13.5px var(--font-round);color:var(--ink)}
+.qty.zero{color:var(--ink-3);background:transparent;border:1px dashed var(--line-2)}
+.wdot{width:9px;height:9px;border-radius:50%;flex:none}
+.wdot.mint{background:var(--mint)}.wdot.peach{background:var(--peach-deep)}.wdot.lav{background:var(--lav)}.wdot.blush{background:var(--blush-deep)}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper b{min-width:22px;text-align:center;font:800 16px var(--font-round)}
+.stepper .mini-btn{width:34px;padding:0;justify-content:center}
+.row .stepper{margin-left:auto}
+.mini-btn[disabled]{opacity:.45;pointer-events:none}
+.pair-notes{margin:0 0 10px;color:var(--ink-2);font-size:15px;line-height:1.45}
+.wlog{list-style:none;margin:0;padding:0}
+.wlog li{display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14.5px}
+.wlog li:first-child{border-top:0}
+.wlog .when{flex:none;width:96px;color:var(--ink-3);font-weight:600;font-size:13px;padding-top:1px}
+.wlog .note{color:var(--ink-3)}
+.rank.wl{margin-bottom:8px;box-shadow:none;background:var(--bg-2);padding:8px 12px 8px 8px}
+.rank.wl .tn{width:44px;height:44px;border-radius:12px;font-size:22px}
+.rank.wl:last-child{margin-bottom:0}
+.rank.wl .sub{margin:0;border:0;background:none;border-radius:0;display:block;overflow:hidden;text-overflow:ellipsis}
+.tag-input .chip.pr{background:var(--peach-soft);color:#B8583A}
+.garnish{margin:-6px 0 14px;font-size:15px;color:var(--ink-2)}
+.garnish b{color:var(--ink);font-weight:650}
+
 /* toast */
 .toast{position:fixed;left:50%;width:max-content;text-align:center;bottom:calc(92px + var(--safe-b));transform:translate(-50%,20px);opacity:0;z-index:90;pointer-events:none;
   background:rgba(46,37,48,.92);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;font-weight:500;max-width:calc(100% - 32px);box-shadow:var(--shadow);transition:.35s var(--ease)}
@@ -480,6 +516,8 @@ svg.i.fill{fill:currentColor}
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
   <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 12.2A2 2 0 0 0 9.4 18H18a2 2 0 0 0 2-2l1.2-7H6"/><circle cx="9.5" cy="21" r="1.4"/><circle cx="17.5" cy="21" r="1.4"/></symbol>
   <symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".6"/><circle cx="15" cy="9" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="9" cy="15" r=".6"/><circle cx="15" cy="15" r=".6"/></symbol>
+  <symbol id="i-glass" viewBox="0 0 24 24"><path d="M7 3h10l-.4 5.2a4.6 4.6 0 0 1-9.2 0z"/><path d="M7.3 7.5h9.4M12 13v7.5M8.5 21h7"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
 </svg>
 
@@ -583,6 +621,19 @@ svg.i.fill{fill:currentColor}
       </div>
     </section>
 
+    <!-- Bar: cocktails + wine vault -->
+    <section class="view" id="view-bar" data-view="bar" hidden>
+      <div class="nav-top"><span class="eyebrow" style="color:var(--blush-deep)">🍸 Eckert Haus Bar</span>
+        <button class="circle-btn primary" id="barNew" data-act="bar-new" aria-label="Add a cocktail"><svg class="i"><use href="#i-plus"/></svg></button></div>
+      <h1 class="large-title">Bar</h1>
+      <div class="segmented bar-seg" id="barSeg" role="group" aria-label="Bar section">
+        <button data-bar="cocktails" aria-pressed="true">🍸 Cocktails</button><button data-bar="vault" aria-pressed="false">🍷 Wine Vault</button></div>
+      <label class="search"><svg class="i sm"><use href="#i-search"/></svg>
+        <input id="bq" type="search" placeholder="Search cocktails, spirits, ingredients" autocomplete="off" enterkeyhint="search"></label>
+      <div id="barTools"></div>
+      <div id="barList"></div>
+    </section>
+
     <!-- Me -->
     <section class="view" id="view-me" data-view="me" hidden>
       <div class="nav-top"><span class="eyebrow">⚙︎ Settings</span></div>
@@ -596,6 +647,7 @@ svg.i.fill{fill:currentColor}
     <button data-tab="pinned"><svg class="i"><use href="#i-pin"/></svg>Pinned</button>
     <button data-tab="favorites"><svg class="i"><use href="#i-heart"/></svg>Favorites</button>
     <button data-tab="grocery"><svg class="i"><use href="#i-cart"/></svg>Grocery</button>
+    <button data-tab="bar"><svg class="i"><use href="#i-glass"/></svg>Bar</button>
     <button data-tab="me"><svg class="i"><use href="#i-person"/></svg>Me</button>
   </div></nav>
 </div>
@@ -605,6 +657,8 @@ svg.i.fill{fill:currentColor}
 <div class="sheet roulette" id="rouletteSheet" role="dialog" aria-modal="true" aria-label="Meal roulette"></div>
 <div class="sheet editor" id="editorSheet" role="dialog" aria-modal="true" aria-label="Edit recipe"></div>
 <div class="sheet share" id="shareSheet" role="dialog" aria-modal="true" aria-label="Send recipe"></div>
+<div class="sheet editor" id="wineSheet" role="dialog" aria-modal="true" aria-label="Edit wine"></div>
+<div class="sheet share" id="drinkSheet" role="dialog" aria-modal="true" aria-label="Open a bottle"></div>
 <div class="sheet admin" id="adminSheet" role="dialog" aria-modal="true" aria-label="Families and logins"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="photoInput" accept="image/*" hidden>
