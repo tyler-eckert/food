@@ -11,14 +11,20 @@ const totalOf = (r) => r.total_min ?? ((r.prep_min || 0) + (r.cook_min || 0) || 
 const initials = (n) => (n || "?").trim().charAt(0).toUpperCase();
 const debounce = (fn, ms = 180) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-const COURSES = ["Entree", "Side", "Appetizer", "Dessert", "Drink", "Breakfast", "Brunch", "Lunch", "Dinner", "Soup", "Salad", "Snack", "Sauce", "Bread"];
-const COURSE_LABEL = { Entree: "Entrées", Side: "Sides", Appetizer: "Appetizers", Dessert: "Desserts", Drink: "Drinks", Soup: "Soups", Salad: "Salads", Snack: "Snacks", Sauce: "Sauces", Bread: "Breads" };
+const COURSES = ["Entree", "Side", "Appetizer", "Dessert", "Drink", "Cocktail", "Mocktail", "Breakfast", "Brunch", "Lunch", "Dinner", "Soup", "Salad", "Snack", "Sauce", "Bread"];
+const COURSE_LABEL = { Entree: "Entrées", Side: "Sides", Appetizer: "Appetizers", Dessert: "Desserts", Drink: "Drinks", Cocktail: "Cocktails", Mocktail: "Mocktails", Soup: "Soups", Salad: "Salads", Snack: "Snacks", Sauce: "Sauces", Bread: "Breads" };
 const COURSE_COLOR = { Entree: "var(--peach)", Side: "var(--mint)", Appetizer: "var(--blush)", Dessert: "var(--lav)", Drink: "var(--butter)" };
 const CUISINES = ["American", "Southern", "Cajun", "Tex-Mex", "Mexican", "Italian", "German", "Spanish", "Argentinian", "Korean", "French", "Greek", "Mediterranean", "Asian", "Chinese", "Japanese", "Thai", "Indian", "BBQ"];
 const PROTEINS = ["Chicken", "Beef", "Pork", "Turkey", "Seafood", "Eggs", "Beans", "Vegetarian", "Vegan"];
 const TAG_IDEAS = ["kid friendly", "weeknight", "freezer friendly", "holiday", "one pan", "healthy", "crockpot", "make ahead", "grill"];
-const EMOJI = { Breakfast: "🥞", Brunch: "🍳", Lunch: "🥪", Side: "🥔", Appetizer: "🧀", Soup: "🍲", Salad: "🥗", Dessert: "🧁", Snack: "🍿", Drink: "🍹", Sauce: "🫙", Bread: "🥖" };
+const EMOJI = { Breakfast: "🥞", Brunch: "🍳", Lunch: "🥪", Side: "🥔", Appetizer: "🧀", Soup: "🍲", Salad: "🥗", Dessert: "🧁", Snack: "🍿", Drink: "🍹", Cocktail: "🍸", Mocktail: "🍹", Sauce: "🫙", Bread: "🥖" };
 const PROTEIN_EMOJI = { Chicken: "🍗", Beef: "🥩", Pork: "🥓", Turkey: "🦃", Seafood: "🐟", Eggs: "🍳", Vegetarian: "🥕", Vegan: "🥑", Beans: "🫘" };
+// Bar: cocktails are recipes whose course is one of these; they live on the Bar tab instead of Recipes.
+const DRINK_COURSES = ["Cocktail", "Mocktail", "Drink"];
+const isDrink = (r) => DRINK_COURSES.includes(String(r?.course || "").trim().replace(/^./, (c) => c.toUpperCase()));
+const SPIRITS = ["Bourbon", "Rye", "Scotch", "Irish whiskey", "Gin", "Vodka", "Tequila", "Mezcal", "Rum", "Brandy", "Cognac", "Liqueur", "Wine", "Beer", "None (mocktail)"];
+const METHODS = ["Shaken", "Stirred", "Built", "Blended"];
+const GLASSES = ["Rocks", "Coupe", "Martini", "Highball", "Collins", "Nick & Nora", "Copper mug", "Wine glass", "Flute", "Hurricane", "Pint"];
 const ART = [["#FFE6D8", "#FDE9EE"], ["#E0F5EC", "#FFF5DA"], ["#EFEBFC", "#FDE9EE"], ["#FFF5DA", "#FFE6D8"], ["#E0F5EC", "#EFEBFC"]];
 
 function art(r, big = false) {
@@ -56,6 +62,9 @@ const S = {
   tab: "recipes", q: "", filters: {}, filterOpen: false, openGroups: new Set(["course"]),
   famTab: "all", detail: null, scale: 1, checked: new Set(), wake: null,
   sort: "category", dir: 1, open: new Set(), sec: new Map(), ck: new Set(), details: new Map(),
+  // bar
+  barReady: true, wines: [], wineLog: [], pairings: [], bar: "cocktails", bq: "", spirit: new Set(), wtype: new Set(),
+  wgroup: "location", wopen: new Set(), showEmpty: false,
 };
 const byId = (id) => S.recipes.find((r) => r.id === id);
 const profile = (id) => S.profiles.find((p) => p.id === id);
@@ -98,6 +107,7 @@ function valuesOf(r, key) {
     default: return r[key] ? [r[key]] : [];
   }
 }
+const foodRecipes = () => S.recipes.filter((r) => !isDrink(r));
 const activeCount = () => Object.values(S.filters).reduce((a, s) => a + s.size, 0);
 
 function matches(r, skipKey = null) {
@@ -148,7 +158,7 @@ function renderFilters() {
   let html = "";
   for (const g of GROUPS) {
     const counts = new Map();
-    for (const r of S.recipes) if (matches(r, g.key)) for (const v of valuesOf(r, g.key)) counts.set(v, (counts.get(v) || 0) + 1);
+    for (const r of foodRecipes()) if (matches(r, g.key)) for (const v of valuesOf(r, g.key)) counts.set(v, (counts.get(v) || 0) + 1);
     const sel = S.filters[g.key] || new Set();
     for (const v of sel) if (!counts.has(v)) counts.set(v, 0);
     if (!counts.size) continue;
@@ -163,7 +173,7 @@ function renderFilters() {
       <div class="chips">${keys.map((v) => `<button class="chip" data-f="${g.key}" data-v="${h(v)}" aria-pressed="${sel.has(v)}">${h(v)} <small>${counts.get(v)}</small></button>`).join("")}</div>
     </details>`;
   }
-  const shown = S.recipes.filter((r) => matches(r)).length;
+  const shown = foodRecipes().filter((r) => matches(r)).length;
   html += `<div class="filter-foot"><button class="link-btn" data-act="clear-filters" ${activeCount() ? "" : "hidden"}>Clear all</button><span style="color:var(--ink-3);font-size:14px;margin-left:auto">${shown} recipe${shown === 1 ? "" : "s"}</span></div>`;
   panel.innerHTML = html || `<div class="empty" style="padding:24px">Add a few recipes and their details will show up here as filters.</div>`;
 
@@ -207,6 +217,7 @@ function stepList(rows, keyFn) {
 
 function metaLine(r) {
   const n = detailsOf(r.id).ingredients.length;
+  if (isDrink(r)) return [r.spirit, r.method, r.glass, n ? `${n} ingredients` : ""].filter(Boolean).map(h).join(" · ") || "&nbsp;";
   return [fmtMin(totalOf(r)), r.protein, r.cuisine, n ? `${n} ingredients` : ""].filter(Boolean).map(h).join(" · ") || "&nbsp;";
 }
 function row(r) {
@@ -225,8 +236,11 @@ function rowBody(r) {
   const d = detailsOf(r.id), mine = myScore(r.id), pinned = S.pins.has(r.id);
   const sec = S.sec.get(r.id) || { ing: true, steps: false };
   const key = (t, i) => `${r.id}:${t}${i}`;
-  const facts = [["Prep", fmtMin(r.prep_min)], ["Cook", fmtMin(r.cook_min)], ["Total", fmtMin(totalOf(r))], ["Serves", r.servings]].filter(([, v]) => v);
-  const pills = [[r.course, "peach"], [r.cuisine, "mint"], [r.protein, "blush"], [r.difficulty, "butter"]].filter(([v]) => v);
+  const drink = isDrink(r);
+  const facts = (drink ? [["Glass", r.glass], ["Garnish", r.garnish], ["Serves", r.servings]]
+    : [["Prep", fmtMin(r.prep_min)], ["Cook", fmtMin(r.cook_min)], ["Total", fmtMin(totalOf(r))], ["Serves", r.servings]]).filter(([, v]) => v);
+  const pills = (drink ? [[r.spirit, "mint"], [r.method, "blush"], [r.difficulty, "butter"]]
+    : [[r.course, "peach"], [r.cuisine, "mint"], [r.protein, "blush"], [r.difficulty, "butter"]]).filter(([v]) => v);
   return `<div class="item-body">
     ${r.description ? `<p class="desc">${h(r.description)}</p>` : ""}
     <div class="chips">${pills.map(([v, c]) => `<span class="chip static ${c}">${h(v)}</span>`).join("")}${(r.tags || []).map((t) => `<span class="chip static lav">#${h(t)}</span>`).join("")}
@@ -263,7 +277,8 @@ function groupsHtml(groups) {
 let visibleIds = [];
 function renderHome() {
   renderFilters();
-  const list = S.recipes.filter((r) => matches(r));
+  const food = foodRecipes();
+  const list = food.filter((r) => matches(r));
   visibleIds = list.map((r) => r.id);
   const browsing = !S.q && !activeCount();
   const pins = pinnedList();
@@ -272,10 +287,10 @@ function renderHome() {
   $("#dirBtn").dataset.dir = S.dir;
   $("#sortSel").value = S.sort;
   $("#list").innerHTML = !list.length
-    ? (S.recipes.length
+    ? (food.length
       ? emptyState("🔍", "No matches", "Try a different search or loosen a filter.", `<button class="btn soft" data-act="clear-filters">Clear filters</button>`)
       : emptyState("🍑", "Your recipe box is empty", "Paste a link from any recipe site, or type in Grandma's favorite.", `<button class="btn primary" data-act="new">${icon("plus")} Add a recipe</button>`))
-    : `<div class="list-meta"><span>${list.length} recipe${list.length === 1 ? "" : "s"}${browsing ? "" : ` of ${S.recipes.length}`} · by ${cfg.label}</span>
+    : `<div class="list-meta"><span>${list.length} recipe${list.length === 1 ? "" : "s"}${browsing ? "" : ` of ${food.length}`} · by ${cfg.label}</span>
         <button class="link-btn" data-act="${anyOpen ? "collapse-all" : "expand-all"}">${anyOpen ? "Collapse all" : "Expand all"}</button></div>
       ${browsing && pins.length ? groupsHtml([{ key: "pinned", label: "📌 Pinned", items: pins }]) : ""}
       ${groupsHtml(grouped(list))}`;
@@ -333,7 +348,7 @@ function renderMe() {
     ${isDemo ? `<div class="demo-note"><b>Demo mode.</b> You're seeing sample recipes stored only in this tab. Fill in <code>config.js</code> with your Supabase URL and anon key to go live.</div>` : ""}`;
 }
 
-function renderAll() { renderHome(); renderPinned(); renderFavorites(); renderGrocery(); renderMe(); }
+function renderAll() { renderHome(); renderPinned(); renderFavorites(); renderGrocery(); renderBar(); renderMe(); }
 
 // ------------------------------------------------------------------ grocery list
 function groceryGroups() {
@@ -441,7 +456,7 @@ async function exportGrocery() {
 
 // ------------------------------------------------------------------ tabs & routing
 function showTab(tab) {
-  if (!["recipes", "pinned", "favorites", "grocery", "me"].includes(tab)) tab = "recipes";
+  if (!["recipes", "pinned", "favorites", "grocery", "bar", "me"].includes(tab)) tab = "recipes";
   if (S.tab !== tab) window.scrollTo({ top: 0 });
   S.tab = tab;
   for (const v of $$("[data-view]")) v.hidden = v.dataset.view !== tab;
@@ -455,8 +470,14 @@ async function route() {
   const [a, b] = location.hash.replace(/^#\/?/, "").split("/");
   if (a === "r" && b) { closeSheet("editorSheet"); await openDetail(b); }
   else if (a === "new") await openEditor(null);
+  else if (a === "new-drink") await openEditor(null, { course: "Cocktail" });
   else if (a === "edit" && b) await openEditor(b);
-  else { closeSheet("adminSheet"); closeSheet("shareSheet"); closeSheet("editorSheet"); closeSheet("detailSheet"); showTab(a || "recipes"); }
+  else if (a === "wine" && b) { closeSheet("detailSheet"); await openWineEditor(b === "new" ? null : b); }
+  else {
+    for (const id of ["adminSheet", "shareSheet", "drinkSheet", "wineSheet", "editorSheet", "detailSheet"]) closeSheet(id);
+    showTab(a || "recipes");
+    if (S.scrollWine) { const id = S.scrollWine; S.scrollWine = null; requestAnimationFrame(() => $(`#barList [data-witem="${id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" })); }
+  }
 }
 window.addEventListener("hashchange", route);
 
@@ -492,8 +513,12 @@ async function openDetail(id) {
 function renderDetail() {
   const r = S.detail; if (!r) return;
   const pinned = S.pins.has(r.id), mine = myScore(r.id);
-  const stats = [["Prep", fmtMin(r.prep_min)], ["Cook", fmtMin(r.cook_min)], ["Total", fmtMin(totalOf(r))], ["Serves", r.servings]].filter(([, v]) => v);
-  const pills = [[r.course, "peach"], [r.cuisine, "mint"], [r.protein, "blush"], [r.difficulty, "butter"]].filter(([v]) => v);
+  const drink = isDrink(r);
+  const stats = (drink ? [["Method", r.method], ["Glass", r.glass], ["Serves", r.servings]]
+    : [["Prep", fmtMin(r.prep_min)], ["Cook", fmtMin(r.cook_min)], ["Total", fmtMin(totalOf(r))], ["Serves", r.servings]]).filter(([, v]) => v);
+  const pills = (drink ? [[r.course, "peach"], [r.spirit, "mint"], [r.difficulty, "butter"]]
+    : [[r.course, "peach"], [r.cuisine, "mint"], [r.protein, "blush"], [r.difficulty, "butter"]]).filter(([v]) => v);
+  const paired = S.pairings.filter((p) => p.recipe_id === r.id).map((p) => S.wines.find((w) => w.id === p.wine_id)).filter(Boolean);
   const scalable = r.ingredients.some((i) => qtyToNumber(i.quantity));
   const famRows = S.families.map((f) => ({ f, s: scoresFor(r.id, f.id) })).filter((x) => x.s.n);
   const dkey = (t, i) => `d:${r.id}:${t}${i}`;
@@ -506,6 +531,7 @@ function renderDetail() {
       ${pills.length ? `<div class="chips" style="margin-bottom:12px">${pills.map(([v, c]) => `<span class="chip static ${c}">${h(v)}</span>`).join("")}</div>` : ""}
       <h1>${h(r.title)}</h1>
       ${r.description ? `<p class="desc">${h(r.description)}</p>` : ""}
+      ${drink && r.garnish ? `<p class="garnish">🍒 <b>Garnish</b> ${h(r.garnish)}</p>` : ""}
       ${stats.length ? `<div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">${stats.map(([k, v]) => `<div class="stat"><b>${h(v).replace(/ min$/, "<small style='font-size:12px'> min</small>")}</b><span>${k}</span></div>`).join("")}</div>` : ""}
       <div class="action-row">
         <button class="action ${S.wake ? "on" : ""}" data-act="wake">${icon("flame")}${S.wake ? "Screen on" : "Cook mode"}</button>
@@ -525,6 +551,8 @@ function renderDetail() {
       ${r.ingredients.length ? `<div class="panel"><h3>Ingredients ${scalable ? `<span class="segmented" role="group" aria-label="Scale">${[[0.5, "½×"], [1, "1×"], [2, "2×"], [3, "3×"]].map(([v, l]) => `<button data-scale="${v}" aria-pressed="${S.scale === v}">${l}</button>`).join("")}</span>` : ""}</h3>
         ${ingList(r.ingredients, dkey, S.scale)}</div>` : ""}
       ${r.steps.length ? `<div class="panel"><h3>Instructions</h3>${stepList(r.steps, dkey)}</div>` : ""}
+      ${paired.length ? `<div class="panel"><h3>Wine pairings <span style="font:600 13px var(--font);color:var(--ink-3)">from your vault</span></h3>
+        ${paired.map((w) => wineLinkHtml(w)).join("")}</div>` : ""}
       ${r.notes ? `<div class="panel"><h3>Notes</h3><p style="margin:0;white-space:pre-wrap;color:var(--ink-2)">${h(r.notes)}</p></div>` : ""}
       ${r.credit ? `<p style="margin:16px 0 0"><span class="credit">${icon("users", "sm")} From ${h(r.credit)}</span></p>` : ""}
       ${r.tags?.length ? `<div class="chips" style="margin-top:18px">${r.tags.map((t) => `<span class="chip static lav">#${h(t)}</span>`).join("")}</div>` : ""}
@@ -543,7 +571,7 @@ async function togglePin(id) {
   const on = !S.pins.has(id);
   on ? S.pins.set(id, new Date().toISOString()) : S.pins.delete(id);
   if (S.detail?.id === id) renderDetail();
-  renderHome(); renderPinned();
+  renderHome(); renderPinned(); renderBarList();
   toast(on ? "Pinned 📌" : "Unpinned");
   try { await store.setPin(id, on); } catch (e) { toast(e.message); }
 }
@@ -553,22 +581,25 @@ async function rate(id, n) {
   S.ratings = S.ratings.filter((r) => !(r.recipe_id === id && r.user_id === S.me.id));
   if (score) S.ratings.push({ user_id: S.me.id, recipe_id: id, score });
   if (S.detail?.id === id) { renderDetail(); $(`#detailSheet [data-rate="${n}"]`)?.classList.add("pop"); }
-  renderHome(); renderPinned(); renderFavorites();
+  renderHome(); renderPinned(); renderFavorites(); renderBarList();
   $(`#list [data-item="${id}"] [data-rate="${n}"]`)?.classList.add("pop");
+  $(`#barList [data-item="${id}"] [data-rate="${n}"]`)?.classList.add("pop");
   try { await store.setRating(id, score); } catch (e) { toast(e.message); }
 }
 
 // ------------------------------------------------------------------ editor
 let E = null;
 const blank = () => ({ id: null, title: "", description: "", image_url: "", source_url: "", course: "", cuisine: "", protein: "", difficulty: "",
-  prep_min: "", cook_min: "", total_min: "", servings: "", tags: [], notes: "", credit: "", ingText: "", stepText: "" });
+  prep_min: "", cook_min: "", total_min: "", servings: "", tags: [], notes: "", credit: "", ingText: "", stepText: "",
+  spirit: "", method: "", glass: "", garnish: "" });
 
-async function openEditor(id) {
+async function openEditor(id, preset = null) {
   if (id) {
     const r = S.detail?.id === id ? S.detail : await store.getRecipe(id);
     E = { ...blank(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), tags: [...(r.tags || [])],
       ingText: ingredientsToText(r.ingredients), stepText: stepsToText(r.steps) };
-  } else E = blank();
+  } else E = { ...blank(), ...(preset || {}) };
+  E._drink = isDrink(E);
   renderEditor();
   $("#editorSheet").scrollTop = 0;
   openSheet("editorSheet");
@@ -578,11 +609,12 @@ async function openEditor(id) {
 const dl = (id, list, extra) => `<datalist id="${id}">${[...new Set([...list, ...extra.filter(Boolean)])].map((v) => `<option value="${h(v)}">`).join("")}</datalist>`;
 function renderEditor() {
   const known = (k) => S.recipes.map((r) => r[k]);
+  const drink = isDrink(E), noun = drink ? "Cocktail" : "Recipe";
   $("#editorSheet").innerHTML = `
-    <div class="sheet-bar"><button class="bar-btn l" data-act="cancel-edit">Cancel</button><h2>${E.id ? "Edit Recipe" : "New Recipe"}</h2>
+    <div class="sheet-bar"><button class="bar-btn l" data-act="cancel-edit">Cancel</button><h2>${E.id ? `Edit ${noun}` : `New ${noun}`}</h2>
       <button class="bar-btn strong r" data-act="save" id="saveBtn">Save</button></div>
     <div class="sheet-body">
-      ${E.id ? "" : `<div class="import"><h3>${icon("wand")} Import from a link</h3><p>Paste a link from any recipe site and we'll fill everything in.</p>
+      ${E.id ? "" : `<div class="import"><h3>${icon("wand")} Import from a link</h3><p>Paste a link from any ${drink ? "cocktail or " : ""}recipe site and we'll fill everything in.</p>
         <div class="line"><input class="field" id="impUrl" type="url" inputmode="url" placeholder="https://…" autocomplete="off" enterkeyhint="go">
           <button class="btn mint sm" style="height:46px" data-act="import" id="impBtn">Import</button></div>
         <div style="display:flex;gap:16px;margin-top:10px">
@@ -598,39 +630,44 @@ function renderEditor() {
       <div class="photo-links"><button class="link-btn" data-act="img-url">Use an image link</button>${E.image_url ? `<button class="link-btn" style="color:var(--ink-3)" data-act="img-clear">Remove photo</button>` : ""}</div>
       <div id="imgUrlRow" hidden class="group" style="margin-top:6px"><div class="row"><input data-k="image_url" type="url" placeholder="https://…/photo.jpg" value="${h(E.image_url)}"></div></div>
 
-      <div class="group-title">Recipe</div>
+      <div class="group-title">${noun}</div>
       <div class="group">
-        <div class="row"><input data-k="title" placeholder="Recipe name" value="${h(E.title)}" style="font-weight:650;font-size:19px" autocapitalize="words"></div>
+        <div class="row"><input data-k="title" placeholder="${drink ? "Cocktail name" : "Recipe name"}" value="${h(E.title)}" style="font-weight:650;font-size:19px" autocapitalize="words"></div>
         <div class="row"><textarea data-k="description" rows="2" placeholder="A short description (optional)">${h(E.description)}</textarea></div>
       </div>
 
       <div class="group-title">Details</div>
       <div class="group">
         <div class="row"><label>Course</label><input data-k="course" list="dlCourse" placeholder="Dinner" value="${h(E.course)}" autocapitalize="words"></div>
-        <div class="row"><label>Cuisine</label><input data-k="cuisine" list="dlCuisine" placeholder="Italian" value="${h(E.cuisine)}" autocapitalize="words"></div>
-        <div class="row"><label>Protein</label><input data-k="protein" list="dlProtein" placeholder="Chicken" value="${h(E.protein)}" autocapitalize="words"></div>
+        ${drink ? `<div class="row"><label>Spirit</label><input data-k="spirit" list="dlSpirit" placeholder="Bourbon" value="${h(E.spirit)}" autocapitalize="words"></div>
+        <div class="row"><label>Glass</label><input data-k="glass" list="dlGlass" placeholder="Coupe" value="${h(E.glass)}" autocapitalize="words"></div>
+        <div class="row"><label>Garnish</label><input data-k="garnish" placeholder="Orange peel, cherry…" value="${h(E.garnish)}"></div>
+        <div class="seg-row"><div class="segmented" id="methSeg" role="group" aria-label="Method">${METHODS.map((m) => `<button data-meth="${m}" aria-pressed="${E.method === m}">${m}</button>`).join("")}</div></div>`
+        : `<div class="row"><label>Cuisine</label><input data-k="cuisine" list="dlCuisine" placeholder="Italian" value="${h(E.cuisine)}" autocapitalize="words"></div>
+        <div class="row"><label>Protein</label><input data-k="protein" list="dlProtein" placeholder="Chicken" value="${h(E.protein)}" autocapitalize="words"></div>`}
         <div class="row"><label>Serves</label><input data-k="servings" placeholder="4" value="${h(E.servings)}" inputmode="text"></div>
         <div class="seg-row"><div class="segmented" id="diffSeg" role="group" aria-label="Difficulty">${["Easy", "Medium", "Hard"].map((d) => `<button data-diff="${d}" aria-pressed="${E.difficulty === d}">${d}</button>`).join("")}</div></div>
       </div>
-      ${dl("dlCourse", COURSES, known("course"))}${dl("dlCuisine", CUISINES, known("cuisine"))}${dl("dlProtein", PROTEINS, known("protein"))}${dl("dlCredit", [], known("credit"))}
+      ${dl("dlCourse", COURSES, known("course"))}${dl("dlCuisine", CUISINES, known("cuisine"))}${dl("dlProtein", PROTEINS, known("protein"))}${dl("dlCredit", [], known("credit"))}${dl("dlSpirit", SPIRITS, known("spirit"))}${dl("dlGlass", GLASSES, known("glass"))}
+      ${drink && !S.barReady ? `<p class="hint" style="color:var(--blush-deep)">Spirit, glass, garnish and method save once <b>008_bar.sql</b> has been run in Supabase.</p>` : ""}
 
-      <div class="group-title">Time (minutes)</div>
+      <div ${drink ? "hidden" : ""}><div class="group-title">Time (minutes)</div>
       <div class="group"><div class="pair">
         <div class="row"><label>Prep</label><input data-k="prep_min" inputmode="numeric" placeholder="0" value="${h(E.prep_min)}"></div>
         <div class="row"><label>Cook</label><input data-k="cook_min" inputmode="numeric" placeholder="0" value="${h(E.cook_min)}"></div></div>
         <div class="row"><label>Total</label><input data-k="total_min" inputmode="numeric" id="totalIn" placeholder="auto" value="${h(E.total_min)}" style="text-align:right"></div>
-      </div>
+      </div></div>
 
       <div class="group-title">Ingredients</div>
       <div class="group">
-        <div class="row stack"><textarea data-k="ingText" id="ingText" rows="5" placeholder="2 cups flour&#10;1 tsp salt&#10;3 eggs, beaten&#10;&#10;Frosting:&#10;1 cup powdered sugar">${h(E.ingText)}</textarea></div>
+        <div class="row stack"><textarea data-k="ingText" id="ingText" rows="5" placeholder="${drink ? "2 oz bourbon&#10;1/4 oz simple syrup&#10;2 dashes Angostura bitters" : "2 cups flour&#10;1 tsp salt&#10;3 eggs, beaten&#10;&#10;Frosting:&#10;1 cup powdered sugar"}">${h(E.ingText)}</textarea></div>
         <button class="parsed-toggle" data-act="toggle-parsed" id="parsedToggle"></button>
         <ul class="parsed" id="parsed" hidden></ul>
       </div>
       <p class="hint">One per line — paste straight from a website or text. End a line with a colon to start a section (“Frosting:”).</p>
 
       <div class="group-title">Steps</div>
-      <div class="group"><div class="row stack"><textarea data-k="stepText" id="stepText" rows="5" placeholder="Preheat the oven to 350°F.&#10;Whisk the dry ingredients.&#10;…">${h(E.stepText)}</textarea></div></div>
+      <div class="group"><div class="row stack"><textarea data-k="stepText" id="stepText" rows="5" placeholder="${drink ? "Stir with ice until well chilled.&#10;Strain over a large cube.&#10;…" : "Preheat the oven to 350°F.&#10;Whisk the dry ingredients.&#10;…"}">${h(E.stepText)}</textarea></div></div>
       <p class="hint">One step per line. Numbers like “1.” are cleaned up for you.</p>
 
       <div class="group-title">Tags</div>
@@ -645,8 +682,8 @@ function renderEditor() {
         <div class="row"><label>Source</label><input data-k="source_url" type="url" inputmode="url" placeholder="Website link" value="${h(E.source_url)}"></div>
       </div>
 
-      <button class="btn primary block" style="margin-top:26px" data-act="save">Save recipe</button>
-      ${E.id ? `<button class="btn danger block" style="margin-top:12px" data-act="delete">${icon("trash", "sm")} Delete recipe</button>` : ""}
+      <button class="btn primary block" style="margin-top:26px" data-act="save">Save ${noun.toLowerCase()}</button>
+      ${E.id ? `<button class="btn danger block" style="margin-top:12px" data-act="delete">${icon("trash", "sm")} Delete ${noun.toLowerCase()}</button>` : ""}
     </div>`;
   updateParsed(); autoTotal();
   for (const ta of $$("#editorSheet textarea")) autosize(ta);
@@ -732,14 +769,20 @@ async function saveRecipe() {
     total_min: toInt(E.total_min) ?? ((toInt(E.prep_min) || 0) + (toInt(E.cook_min) || 0) || null),
     servings: String(E.servings || "").trim(), tags: E.tags, notes: E.notes, credit: String(E.credit || "").trim(),
     ingredients: parseIngredientBlock(E.ingText), steps: parseStepBlock(E.stepText),
+    spirit: String(E.spirit || "").trim(), method: E.method || "", glass: String(E.glass || "").trim(), garnish: String(E.garnish || "").trim(),
   };
+  const drink = isDrink(payload), hasDrinkFields = payload.spirit || payload.method || payload.glass || payload.garnish;
   for (const b of $$('[data-act="save"]')) b.disabled = true;
   try {
     const id = await store.saveRecipe(payload);
+    let drinkErr = null;
+    if (S.barReady && (drink || hasDrinkFields)) {
+      try { await store.saveDrinkFields(id, drink ? payload : { spirit: "", method: "", glass: "", garnish: "" }); } catch (er) { drinkErr = er; }
+    }
     await reload();
     S.detail = null;
     closeSheet("editorSheet");
-    toast(E.id ? "Saved" : "Added to the recipe box 🍑");
+    toast(drinkErr ? `Saved, but the cocktail details didn't: ${drinkErr.message}` : E.id ? "Saved" : drink ? "Added to the bar 🍸" : "Added to the recipe box 🍑");
     if (E.id) { depth = Math.max(0, depth - 1); history.replaceState(null, "", "#/r/" + id); route(); }
     else { history.replaceState(null, "", "#/r/" + id); route(); }
   } catch (e) {
@@ -757,7 +800,7 @@ async function deleteRecipe() {
     await reload();
     S.detail = null; closeSheet("editorSheet"); closeSheet("detailSheet");
     depth = 0; history.replaceState(null, "", "#/" + S.tab); route();
-    toast("Recipe deleted");
+    toast(isDrink(E) ? "Cocktail deleted" : "Recipe deleted");
   } catch (e) { toast(e.message); }
 }
 
@@ -800,7 +843,8 @@ async function doShare(famId) {
 }
 function shareAsText() {
   const r = S.detail; if (!r) return;
-  const meta = [r.servings && `Serves ${r.servings}`, totalOf(r) && `Total ${fmtMin(totalOf(r))}`].filter(Boolean).join(" · ");
+  const meta = (isDrink(r) ? [r.spirit, r.method, r.glass && `${r.glass} glass`, r.garnish && `Garnish: ${r.garnish}`]
+    : [r.servings && `Serves ${r.servings}`, totalOf(r) && `Total ${fmtMin(totalOf(r))}`]).filter(Boolean).join(" · ");
   const text = [r.title, r.description, meta].filter(Boolean).join("\n")
     + `\n\nINGREDIENTS\n${ingredientsToText(r.ingredients)}\n\nINSTRUCTIONS\n${stepsToText(r.steps)}`
     + (r.notes ? `\n\nNOTES\n${r.notes}` : "") + (r.credit ? `\n\nFrom ${r.credit}` : "");
@@ -812,7 +856,7 @@ function shareAsText() {
 // ------------------------------------------------------------------ meal roulette
 const RL = { n: 1, slots: [], spinning: false };
 const RL_H = 72; // keep in sync with .rl-reel / .rl-cell height in index.html
-const rlPool = () => S.recipes.filter((r) => matches(r));
+const rlPool = () => foodRecipes().filter((r) => matches(r));
 const rlPicks = () => RL.slots.map((x) => x.id).filter((id) => id && byId(id));
 const rlShuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -947,6 +991,8 @@ function renderAdmin() {
   sheet.innerHTML = `${adBar()}<div class="sheet-body"><div class="group-title" style="margin-top:14px">Families</div><div class="group">${famList || `<div class="ad-fam" style="color:var(--ink-3)">No families yet</div>`}</div>${body}</div>`;
 }
 document.addEventListener("change", (e) => {
+  if (e.target.id === "wGroup") { S.wgroup = e.target.value; return renderBar(); }
+  if (e.target.id === "wPairIn" && W) return addPairing(e.target.value);
   if (e.target.id !== "adFam") return;
   const isNew = e.target.value === "__new";
   $("#adFamRow").hidden = !isNew;
@@ -977,6 +1023,361 @@ async function copyInvite() {
   try { await navigator.clipboard.writeText(text); toast("Invite copied"); } catch { toast("Couldn't copy — select the text above instead"); }
 }
 
+// ------------------------------------------------------------------ bar: cocktails + wine vault
+const WINE_TYPES = ["Red", "White", "Rosé", "Sparkling", "Dessert", "Fortified", "Orange"];
+const WINE_STYLE = { Red: ["🍷", "#FDE9EE", "#F7D0DA"], White: ["🥂", "#FFF5DA", "#FBE9BE"], "Rosé": ["🌸", "#FDE9EE", "#FFE6D8"], Sparkling: ["🍾", "#E0F5EC", "#FFF5DA"],
+  Dessert: ["🍯", "#FFF5DA", "#FFE6D8"], Fortified: ["🥃", "#EFEBFC", "#FDE9EE"], Orange: ["🍊", "#FFE6D8", "#FFF5DA"] };
+const WINE_TINT = { Red: "blush", White: "butter", "Rosé": "blush", Sparkling: "mint", Dessert: "butter", Fortified: "lav", Orange: "peach" };
+const WINE_SIZES = ["375 ml", "750 ml", "1.5 L", "3 L"];
+const VARIETALS = ["Cabernet Sauvignon", "Merlot", "Pinot Noir", "Syrah / Shiraz", "Zinfandel", "Malbec", "Tempranillo", "Sangiovese", "Nebbiolo", "Grenache", "Red blend",
+  "Chardonnay", "Sauvignon Blanc", "Pinot Grigio", "Riesling", "Chenin Blanc", "Moscato", "White blend", "Champagne blend", "Prosecco", "Port"];
+const WINE_PLACES = ["Basement cellar", "Kitchen wine fridge", "Dining room cabinet", "Bar cart", "Garage fridge"];
+const OCCASIONS = ["Weeknight dinner", "Date night", "Celebration", "Holiday", "Guests over", "Gave as a gift"];
+const WINDOW_ORDER = ["Drink soon", "Ready", "Aging", "Past peak", "No window set"];
+const barErr = (m) => (/wine|drink_wine|spirit|schema cache|relation|column/i.test(m) ? "The Bar isn't set up yet — run 008_bar.sql in Supabase" : m);
+const yearNow = () => new Date().getFullYear();
+const money = (n) => (n == null || n === "" || Number.isNaN(+n) ? "" : "$" + (+n).toLocaleString(undefined, { minimumFractionDigits: +n % 1 ? 2 : 0, maximumFractionDigits: 2 }));
+const wineById = (id) => S.wines.find((w) => w.id === id);
+const wineName = (w) => [w.producer, w.name].filter(Boolean).join(" ") || "Untitled wine";
+const wineWhere = (w) => [w.location, w.zone, w.slot].filter(Boolean).join(" › ");
+const pairedRecipes = (wineId) => S.pairings.filter((p) => p.wine_id === wineId).map((p) => byId(p.recipe_id)).filter(Boolean);
+const wineLogFor = (wineId) => S.wineLog.filter((l) => l.wine_id === wineId);
+
+function wineWindow(w) {
+  const y = yearNow(), f = +w.drink_from || null, b = +w.drink_by || null;
+  if (!f && !b) return null;
+  if (f && y < f) return { key: "Aging", label: `Aging · ready ${f}`, tint: "lav" };
+  if (b && y > b) return { key: "Past peak", label: `Past peak · ${b}`, tint: "blush" };
+  if (b && b - y <= 1) return { key: "Drink soon", label: b === y ? "Drink this year" : `Drink by ${b}`, tint: "peach" };
+  return { key: "Ready", label: b ? `Ready · through ${b}` : "Ready to drink", tint: "mint" };
+}
+function wineThumb(w) {
+  if (w.image_url) return `<img src="${h(w.image_url)}" alt="" loading="lazy" data-art="${h(JSON.stringify({ title: w.name, course: "Drink" }))}">`;
+  const [e, a, b] = WINE_STYLE[w.wine_type] || ["🍷", "#FDE9EE", "#EFEBFC"];
+  return `<div class="art" style="background:linear-gradient(145deg,${a},${b})">${e}</div>`;
+}
+function wineLinkHtml(w) {
+  return `<button class="rank wl" data-wine="${w.id}"><span class="tn">${wineThumb(w)}</span>
+    <span class="mid"><h4>${h(wineName(w))}</h4><span class="sub">${h([w.vintage || "NV", wineWhere(w)].filter(Boolean).join(" · "))}</span></span>
+    <span class="qty ${w.quantity ? "" : "zero"}">×${w.quantity}</span></button>`;
+}
+
+// ---------- shared shell
+function renderBar() {
+  for (const b of $$("#barSeg button")) b.setAttribute("aria-pressed", b.dataset.bar === S.bar);
+  const q = $("#bq");
+  if (q) q.placeholder = S.bar === "vault" ? "Search wines, regions, where it's stored" : "Search cocktails, spirits, ingredients";
+  $("#barNew")?.setAttribute("aria-label", S.bar === "vault" ? "Add a wine" : "Add a cocktail");
+  if (!$("#barTools")) return;
+  $("#barTools").innerHTML = S.bar === "vault" ? vaultTools() : cocktailTools();
+  renderBarList();
+}
+function renderBarList() {
+  const el = $("#barList"); if (!el) return;
+  el.innerHTML = S.bar === "vault" ? vaultList() : cocktailList();
+}
+const renderBarListSoon = debounce(renderBarList, 120);
+const barTerms = () => S.bq.toLowerCase().split(/\s+/).filter(Boolean);
+
+// ---------- cocktails
+const drinkRecipes = () => S.recipes.filter(isDrink);
+function cocktailMatch(r, skipSpirit = false) {
+  const terms = barTerms();
+  if (terms.length) {
+    const hay = [r.title, r.description, r.course, r.spirit, r.method, r.glass, r.garnish, (r.tags || []).join(" "), r.ingredient_names, r.credit].join(" ").toLowerCase();
+    if (!terms.every((t) => hay.includes(t))) return false;
+  }
+  return skipSpirit || !S.spirit.size || S.spirit.has(r.spirit || "Other");
+}
+function cocktailTools() {
+  const counts = new Map();
+  for (const r of drinkRecipes()) if (cocktailMatch(r, true)) counts.set(r.spirit || "Other", (counts.get(r.spirit || "Other") || 0) + 1);
+  for (const v of S.spirit) if (!counts.has(v)) counts.set(v, 0);
+  const rank = (k) => { const i = SPIRITS.indexOf(k); return k === "Other" ? 999 : i < 0 ? 500 : i; };
+  const keys = [...counts.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return keys.length > 1 || S.spirit.size ? `<div class="bar-chips">${keys.map((k) => `<button class="chip" data-spirit="${h(k)}" aria-pressed="${S.spirit.has(k)}">${h(k)} <small>${counts.get(k)}</small></button>`).join("")}</div>` : "";
+}
+function cocktailList() {
+  const all = drinkRecipes(), list = all.filter((r) => cocktailMatch(r));
+  if (!list.length) return all.length
+    ? emptyState("🔍", "No matches", "Try a different search or spirit.", `<button class="btn soft" data-act="bar-clear">Clear</button>`)
+    : emptyState("🍸", "No cocktails yet", "Add your house Old Fashioned, a party punch, or a mocktail for the kids.", `<button class="btn primary" data-act="bar-new">${icon("plus")} Add a cocktail</button>`);
+  const map = new Map();
+  for (const r of [...list].sort((a, b) => a.title.localeCompare(b.title))) { const k = r.spirit || "Other"; if (!map.has(k)) map.set(k, []); map.get(k).push(r); }
+  const rank = (k) => { const i = SPIRITS.indexOf(k); return k === "Other" ? 999 : i < 0 ? 500 : i; };
+  const groups = [...map.entries()].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+  return `${S.barReady ? "" : setupNote()}<div class="list-meta"><span>${list.length} cocktail${list.length === 1 ? "" : "s"}${list.length < all.length ? ` of ${all.length}` : ""} · by spirit</span></div>
+    ${groups.map(([k, items]) => `<section class="lgroup"><div class="lgroup-head"><h2>${h(k)}</h2><span class="n">${items.length}</span></div>
+      <div class="list">${items.map(row).join("")}</div></section>`).join("")}`;
+}
+const setupNote = () => `<div class="demo-note" style="margin-top:12px"><b>One setup step:</b> run <code>supabase/008_bar.sql</code> in the Supabase SQL Editor to turn on the wine vault and cocktail details (spirit, glass, garnish, method).</div>`;
+
+// ---------- wine vault
+function wineMatch(w, skipType = false) {
+  if (!S.showEmpty && !w.quantity) return false;
+  const terms = barTerms();
+  if (terms.length) {
+    const hay = [w.name, w.producer, w.vintage, w.wine_type, w.varietal, w.region, w.country, w.location, w.zone, w.slot, w.notes, w.pairing_notes, w.purchased_from,
+      ...pairedRecipes(w.id).map((r) => r.title)].join(" ").toLowerCase();
+    if (!terms.every((t) => hay.includes(t))) return false;
+  }
+  return skipType || !S.wtype.size || S.wtype.has(w.wine_type || "Other");
+}
+const WGROUPS = {
+  location: { label: "Location", key: (w) => w.location || "Not shelved yet", cmp: (a, b) => (a.zone || "").localeCompare(b.zone || "", undefined, { numeric: true }) || (a.slot || "").localeCompare(b.slot || "", undefined, { numeric: true }) || wineName(a).localeCompare(wineName(b)) },
+  type: { label: "Type", key: (w) => w.wine_type || "Other", order: WINE_TYPES },
+  region: { label: "Region", key: (w) => [w.region, w.country].filter(Boolean).join(", ") || "Unknown region" },
+  vintage: { label: "Vintage", key: (w) => String(w.vintage || "NV"), desc: true },
+  window: { label: "Drinking window", key: (w) => wineWindow(w)?.key || "No window set", order: WINDOW_ORDER },
+};
+function vaultTools() {
+  if (!S.barReady) return "";
+  const stocked = S.wines.filter((w) => w.quantity > 0);
+  const bottles = stocked.reduce((a, w) => a + w.quantity, 0);
+  const value = stocked.reduce((a, w) => a + w.quantity * (+(w.value ?? w.price) || 0), 0);
+  const soon = stocked.filter((w) => ["Drink soon", "Past peak"].includes(wineWindow(w)?.key)).length;
+  const counts = new Map();
+  for (const w of S.wines) if (wineMatch(w, true)) counts.set(w.wine_type || "Other", (counts.get(w.wine_type || "Other") || 0) + 1);
+  for (const v of S.wtype) if (!counts.has(v)) counts.set(v, 0);
+  const keys = [...counts.keys()].sort((a, b) => (WINE_TYPES.indexOf(a) + 1 || 99) - (WINE_TYPES.indexOf(b) + 1 || 99));
+  const empties = S.wines.filter((w) => !w.quantity).length;
+  return `<div class="tiles four">
+      <div class="tile"><b>${bottles}</b><span>Bottles</span></div>
+      <div class="tile"><b>${stocked.length}</b><span>Wines</span></div>
+      <div class="tile"><b>${value ? money(Math.round(value)) : "—"}</b><span>Value</span></div>
+      <button class="tile ${soon ? "alert" : ""}" data-act="wine-soon"><b>${soon}</b><span>Drink soon</span></button></div>
+    <div class="toolbar">
+      <label class="pill-btn sort-pill" for="wGroup">${icon("sort", "sm")}<select id="wGroup" aria-label="Group wines by">${Object.entries(WGROUPS).map(([k, g]) => `<option value="${k}" ${S.wgroup === k ? "selected" : ""}>${g.label}</option>`).join("")}</select>${icon("down", "sm chev")}</label>
+      ${empties ? `<button class="chip" style="margin-left:auto" data-act="wine-empties" aria-pressed="${S.showEmpty}">Finished <small>${empties}</small></button>` : ""}
+    </div>
+    ${keys.length > 1 || S.wtype.size ? `<div class="bar-chips">${keys.map((k) => `<button class="chip" data-wtype="${h(k)}" aria-pressed="${S.wtype.has(k)}">${(WINE_STYLE[k] || ["🍷"])[0]} ${h(k)} <small>${counts.get(k)}</small></button>`).join("")}</div>` : ""}`;
+}
+function vaultList() {
+  if (!S.barReady) return setupNote().replace("margin-top:12px", "margin-top:4px") + emptyState("🍷", "Wine vault is almost ready", "Run the 008_bar.sql migration in Supabase, then refresh.");
+  const list = S.wines.filter((w) => wineMatch(w));
+  if (!list.length) return S.wines.length
+    ? emptyState("🔍", "No matches", S.showEmpty ? "Try a different search or type." : "Try a different search or type — or show finished bottles.", `<button class="btn soft" data-act="bar-clear">Clear</button>`)
+    : emptyState("🍷", "Your vault is empty", "Add the bottles you're keeping — what they are, where they're stored, and when to open them.", `<button class="btn primary" data-act="bar-new">${icon("plus")} Add a wine</button>`);
+  const g = WGROUPS[S.wgroup] || WGROUPS.location;
+  const map = new Map();
+  for (const w of list) { const k = g.key(w); if (!map.has(k)) map.set(k, []); map.get(k).push(w); }
+  const rank = (k) => { const i = (g.order || []).indexOf(k); return i < 0 ? 500 : i; };
+  const groups = [...map.entries()].sort(([a], [b]) => rank(a) - rank(b) || (g.desc ? (a === "NV") - (b === "NV") || b.localeCompare(a) : a.localeCompare(b)));
+  const cmp = g.cmp || ((a, b) => wineName(a).localeCompare(wineName(b)) || (a.vintage || 0) - (b.vintage || 0));
+  const n = list.reduce((a, w) => a + (w.quantity || 0), 0);
+  return `<div class="list-meta"><span>${list.length} wine${list.length === 1 ? "" : "s"} · ${n} bottle${n === 1 ? "" : "s"} · by ${g.label.toLowerCase()}</span></div>
+    ${groups.map(([k, items]) => {
+      const b = items.reduce((a, w) => a + (w.quantity || 0), 0);
+      return `<section class="lgroup"><div class="lgroup-head"><h2>${h(k)}</h2><span class="n">${b} btl</span></div>
+        <div class="list">${items.sort(cmp).map(wineRowHtml).join("")}</div></section>`;
+    }).join("")}`;
+}
+function wineRowHtml(w) {
+  const open = S.wopen.has(w.id), win = wineWindow(w);
+  const spot = S.wgroup === "location" ? [w.zone, w.slot].filter(Boolean).join(" · ") : w.location;
+  const meta = [w.vintage || "NV", w.varietal, w.region || w.country, spot].filter(Boolean).map(h).join(" · ");
+  return `<article class="item wine ${open ? "open" : ""}" data-witem="${w.id}">
+    <button class="item-head" data-wtoggle="${w.id}" aria-expanded="${open}">
+      <span class="tn">${wineThumb(w)}</span>
+      <span class="mid"><h3>${h(wineName(w))}</h3><span class="meta">${meta || "&nbsp;"}</span></span>
+      <span class="right">${win && w.quantity ? `<span class="wdot ${win.tint}" title="${h(win.label)}"></span>` : ""}<span class="qty ${w.quantity ? "" : "zero"}">×${w.quantity}</span>${icon("down", "sm chev")}</span>
+    </button>
+    ${open ? wineBody(w) : ""}
+  </article>`;
+}
+function wineBody(w) {
+  const win = wineWindow(w), recs = pairedRecipes(w.id), log = wineLogFor(w.id);
+  const pills = [[w.wine_type, WINE_TINT[w.wine_type] || "peach"], [w.varietal, "mint"], [[w.region, w.country].filter(Boolean).join(", "), "lav"], [w.size && w.size !== "750 ml" ? w.size : "", "butter"]].filter(([v]) => v);
+  const facts = [["Where", wineWhere(w)], ["Vintage", w.vintage || "NV"], ["Window", w.drink_from || w.drink_by ? [w.drink_from || "now", w.drink_by || "—"].join("–") : ""],
+    ["Paid", money(w.price)], ["Value", money(w.value)], ["From", w.purchased_from], ["Bought", w.purchased_on ? new Date(w.purchased_on + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" }) : ""]].filter(([, v]) => v);
+  const who = (id) => profile(id)?.display_name || "";
+  return `<div class="item-body">
+    <div class="chips">${pills.map(([v, c]) => `<span class="chip static ${c}">${h(v)}</span>`).join("")}${win ? `<span class="chip static ${win.tint}">${h(win.label)}</span>` : ""}</div>
+    ${facts.length ? `<div class="facts">${facts.map(([k, v]) => `<span>${k} <b>${h(v)}</b></span>`).join("")}</div>` : ""}
+    <div class="item-actions">
+      <button class="mini-btn on" data-wdrink="${w.id}" ${w.quantity ? "" : "disabled"}>${icon("glass", "sm")}Open a bottle</button>
+      <span class="stepper" role="group" aria-label="Bottles on hand">
+        <button class="mini-btn" data-wqty="${w.id}" data-d="-1" aria-label="One fewer bottle" ${w.quantity ? "" : "disabled"}>${icon("minus", "sm")}</button>
+        <b>${w.quantity}</b>
+        <button class="mini-btn" data-wqty="${w.id}" data-d="1" aria-label="One more bottle">${icon("plus", "sm")}</button></span>
+      <button class="mini-btn" data-wedit="${w.id}" style="margin-left:auto">${icon("edit", "sm")}Edit</button>
+    </div>
+    ${w.pairing_notes || recs.length ? `<details class="sub" open>
+      <summary><span class="ico" style="background:var(--peach-soft);color:#B8583A">${icon("bowl", "sm")}</span>Pairs with<span class="cnt">${recs.length ? `${recs.length} recipe${recs.length === 1 ? "" : "s"}` : ""}</span>${icon("down", "sm chev")}</summary>
+      <div class="inner">${w.pairing_notes ? `<p class="pair-notes">${h(w.pairing_notes)}</p>` : ""}
+        ${recs.length ? `<div class="chips">${recs.map((r) => `<button class="chip peach" data-open="${r.id}">${h(r.title)}</button>`).join("")}</div>` : ""}</div></details>` : ""}
+    ${log.length ? `<details class="sub">
+      <summary><span class="ico" style="background:var(--lav-soft);color:var(--lav-deep)">${icon("clock", "sm")}</span>Opened<span class="cnt">${log.reduce((a, l) => a + l.bottles, 0)} bottle${log.reduce((a, l) => a + l.bottles, 0) === 1 ? "" : "s"}</span>${icon("down", "sm chev")}</summary>
+      <div class="inner"><ul class="wlog">${log.map((l) => `<li><span class="when">${new Date(l.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+        <span class="what">${l.bottles > 1 ? `<b>${l.bottles} bottles</b> · ` : ""}${h(l.occasion || "Opened")}${l.note ? ` <span class="note">— ${h(l.note)}</span>` : ""}${who(l.user_id) ? ` <span class="note">· ${h(who(l.user_id))}</span>` : ""}</span></li>`).join("")}</ul></div></details>` : ""}
+    ${w.notes ? `<div class="item-notes">${h(w.notes)}</div>` : ""}
+  </div>`;
+}
+async function bumpWine(id, d) {
+  const w = wineById(id); if (!w) return;
+  const q = Math.max(0, (w.quantity || 0) + d);
+  if (q === w.quantity) return;
+  w.quantity = q; renderBar();
+  try { await store.setWineQty(id, q); } catch (e) { toast(barErr(e.message)); }
+}
+
+// ---------- open-a-bottle sheet
+const DK = { id: null, n: 1, occasion: "" };
+function openDrink(id) {
+  const w = wineById(id); if (!w || !w.quantity) return;
+  Object.assign(DK, { id, n: 1, occasion: "" });
+  renderDrink(); $("#drinkSheet").scrollTop = 0; openSheet("drinkSheet");
+}
+function renderDrink() {
+  const w = wineById(DK.id); if (!w) return closeSheet("drinkSheet");
+  const recs = pairedRecipes(w.id);
+  $("#drinkSheet").innerHTML = `<div class="sheet-bar"><button class="bar-btn l" data-act="drink-cancel">Cancel</button><h2>Open a bottle</h2><span></span></div>
+    <div class="sheet-body">
+      <div class="rank wl" style="margin-top:14px;box-shadow:none"><span class="tn">${wineThumb(w)}</span><span class="mid"><h4>${h(wineName(w))}</h4><span class="sub">${h([w.vintage || "NV", wineWhere(w)].filter(Boolean).join(" · "))}</span></span><span class="qty">×${w.quantity}</span></div>
+      ${w.quantity > 1 ? `<div class="group-title">How many</div><div class="seg-row" style="padding:0"><div class="segmented" style="width:100%">${Array.from({ length: Math.min(w.quantity, 6) }, (_, i) => i + 1).map((n) => `<button style="flex:1" data-dkn="${n}" aria-pressed="${DK.n === n}">${n}</button>`).join("")}</div></div>` : ""}
+      <div class="group-title">Occasion</div>
+      <div class="group"><div class="row"><input id="dkOcc" placeholder="Anniversary dinner, Tuesday…" value="${h(DK.occasion)}" autocapitalize="sentences"></div>
+        <div class="row stack"><textarea id="dkNote" rows="2" placeholder="How was it? (optional)"></textarea></div></div>
+      <div class="suggest">${[...recs.map((r) => r.title), ...OCCASIONS].slice(0, 8).map((o) => `<button class="chip" data-dkocc="${h(o)}">${h(o)}</button>`).join("")}</div>
+      <button class="btn primary block" style="margin-top:22px" data-act="drink-confirm">${icon("glass")} Open ${DK.n > 1 ? `${DK.n} bottles` : "it"}</button>
+      <p class="hint" style="text-align:center">Takes ${DK.n === 1 ? "one bottle" : `${DK.n} bottles`} out of the vault and adds ${DK.n === 1 ? "it" : "them"} to this wine's history.</p>
+    </div>`;
+}
+async function confirmDrink() {
+  const w = wineById(DK.id); if (!w) return;
+  const btn = $('[data-act="drink-confirm"]'); busy(btn, true);
+  try {
+    const left = await store.drinkWine(w.id, DK.n, $("#dkOcc").value.trim(), $("#dkNote").value.trim());
+    closeSheet("drinkSheet");
+    await reload();
+    toast(left ? `Cheers! ${left} left in the vault 🍷` : "Cheers! That was the last one 🍷");
+  } catch (e) { busy(btn, false, `${icon("glass")} Open it`); toast(barErr(e.message)); }
+}
+
+// ---------- wine editor
+let W = null;
+const wBlank = () => ({ id: null, name: "", producer: "", vintage: "", wine_type: "Red", varietal: "", region: "", country: "", size: "750 ml", quantity: 1,
+  location: "", zone: "", slot: "", drink_from: "", drink_by: "", price: "", value: "", purchased_from: "", purchased_on: "", pairing_notes: "", notes: "", image_url: "", recipes: [] });
+async function openWineEditor(id) {
+  if (!S.barReady) { toast("The Bar isn't set up yet — run 008_bar.sql in Supabase"); return back("#/bar"); }
+  if (id) {
+    const w = wineById(id);
+    if (!w) { toast("That wine was removed."); return back("#/bar"); }
+    W = { ...wBlank(), ...Object.fromEntries(Object.entries(w).map(([k, v]) => [k, v ?? ""])), recipes: pairedRecipes(id).map((r) => r.id) };
+  } else W = wBlank();
+  renderWineEditor();
+  $("#wineSheet").scrollTop = 0;
+  openSheet("wineSheet");
+}
+function renderWineEditor() {
+  const known = (k) => S.wines.map((w) => w[k]);
+  const inp = (k, ph, extra = "") => `<input data-w="${k}" placeholder="${ph}" value="${h(W[k])}" ${extra}>`;
+  const food = foodRecipes().filter((r) => !W.recipes.includes(r.id));
+  const zoneHints = S.wines.filter((w) => !W.location || w.location === W.location).map((w) => w.zone);
+  $("#wineSheet").innerHTML = `
+    <div class="sheet-bar"><button class="bar-btn l" data-act="wine-cancel">Cancel</button><h2>${W.id ? "Edit Wine" : "New Wine"}</h2>
+      <button class="bar-btn strong r" data-act="wine-save">Save</button></div>
+    <div class="sheet-body">
+      <div class="photo ${W.image_url ? "has" : ""}" data-act="wphoto" role="button" aria-label="Add a label photo" style="height:160px">
+        ${W.image_url ? `<img src="${h(W.image_url)}" alt=""><span class="btn sm change">${icon("camera", "sm")} Change</span>` : `<span class="ph">${icon("camera")}Snap the label</span>`}</div>
+      ${W.image_url ? `<div class="photo-links"><span></span><button class="link-btn" style="color:var(--ink-3)" data-act="wimg-clear">Remove photo</button></div>` : ""}
+
+      <div class="group-title">Wine</div>
+      <div class="group">
+        <div class="row">${inp("producer", "Producer / winery", 'list="dlProducer" autocapitalize="words" style="font-weight:650;font-size:18px"')}</div>
+        <div class="row">${inp("name", "Wine name (Reserve Cabernet…)", 'autocapitalize="words"')}</div>
+        <div class="row"><label>Vintage</label>${inp("vintage", "NV", 'inputmode="numeric" maxlength="4"')}</div>
+        <div class="seg-row"><div class="segmented" role="group" aria-label="Type">${WINE_TYPES.map((t) => `<button data-wt="${t}" aria-pressed="${W.wine_type === t}">${t}</button>`).join("")}</div></div>
+      </div>
+
+      <div class="group-title">Details</div>
+      <div class="group">
+        <div class="row"><label>Grape</label>${inp("varietal", "Cabernet Sauvignon", 'list="dlVarietal" autocapitalize="words"')}</div>
+        <div class="row"><label>Region</label>${inp("region", "Napa Valley", 'list="dlRegion" autocapitalize="words"')}</div>
+        <div class="row"><label>Country</label>${inp("country", "USA", 'list="dlCountry" autocapitalize="words"')}</div>
+        <div class="seg-row"><div class="segmented" role="group" aria-label="Bottle size">${WINE_SIZES.map((t) => `<button data-wsize="${t}" aria-pressed="${W.size === t}">${t}</button>`).join("")}</div></div>
+      </div>
+
+      <div class="group-title">Where it lives</div>
+      <div class="group">
+        <div class="row"><label>Bottles</label><span class="stepper"><button class="mini-btn" data-act="wq-down" aria-label="Fewer">${icon("minus", "sm")}</button><b id="wQty">${+W.quantity || 0}</b><button class="mini-btn" data-act="wq-up" aria-label="More">${icon("plus", "sm")}</button></span></div>
+        <div class="row"><label>Location</label>${inp("location", "Basement cellar", 'list="dlLoc" autocapitalize="words"')}</div>
+        <div class="row"><label>Rack / zone</label>${inp("zone", "Rack B, top shelf…", 'list="dlZone" autocapitalize="words"')}</div>
+        <div class="row"><label>Slot / bin</label>${inp("slot", "Row 3, bin 4…", 'list="dlSlot"')}</div>
+      </div>
+      <p class="hint">Pick from places you've used before so the vault groups neatly by location.</p>
+
+      <div class="group-title">Drinking window</div>
+      <div class="group"><div class="pair">
+        <div class="row"><label>From</label>${inp("drink_from", String(yearNow()), 'inputmode="numeric" maxlength="4"')}</div>
+        <div class="row"><label>Through</label>${inp("drink_by", String(yearNow() + 5), 'inputmode="numeric" maxlength="4"')}</div></div></div>
+      <p class="hint">Leave blank if it's ready now. Wines inside a year of their end date show up under Drink soon.</p>
+
+      <div class="group-title">Purchase</div>
+      <div class="group">
+        <div class="pair">
+          <div class="row"><label>Paid</label>${inp("price", "$ / bottle", 'inputmode="decimal"')}</div>
+          <div class="row"><label>Value</label>${inp("value", "$ now", 'inputmode="decimal"')}</div></div>
+        <div class="row"><label>From</label>${inp("purchased_from", "Winery, shop, gift…", 'list="dlShop" autocapitalize="words"')}</div>
+        <div class="row"><label>Date</label><input data-w="purchased_on" type="date" value="${h(W.purchased_on)}"></div>
+      </div>
+
+      <div class="group-title">Pairings</div>
+      <div class="group">
+        <div class="row"><textarea data-w="pairing_notes" rows="2" placeholder="Steak, mushroom risotto, aged cheddar…">${h(W.pairing_notes)}</textarea></div>
+        <div class="tag-input">${W.recipes.map((id) => byId(id)).filter(Boolean).map((r) => `<button class="chip pr" data-wunpair="${r.id}">${h(r.title)} ${icon("x", "sm")}</button>`).join("")}
+          <input id="wPairIn" list="dlRecipes" placeholder="${W.recipes.length ? "Link another recipe" : "Link a recipe from your box…"}" autocomplete="off"></div>
+      </div>
+      <p class="hint">Linked recipes show this wine on their page, so it's right there when you're planning dinner.</p>
+
+      <div class="group-title">Tasting notes</div>
+      <div class="group"><div class="row"><textarea data-w="notes" rows="3" placeholder="Dark cherry, cocoa, firm tannins…">${h(W.notes)}</textarea></div></div>
+
+      ${dl("dlProducer", [], known("producer"))}${dl("dlVarietal", VARIETALS, known("varietal"))}${dl("dlRegion", [], known("region"))}${dl("dlCountry", ["USA", "France", "Italy", "Spain", "Portugal", "Argentina", "Chile", "Australia", "New Zealand", "Germany", "South Africa"], known("country"))}
+      ${dl("dlLoc", WINE_PLACES, known("location"))}${dl("dlZone", [], zoneHints)}${dl("dlSlot", [], known("slot"))}${dl("dlShop", [], known("purchased_from"))}
+      <datalist id="dlRecipes">${food.map((r) => `<option value="${h(r.title)}">`).join("")}</datalist>
+
+      <button class="btn primary block" style="margin-top:26px" data-act="wine-save">Save wine</button>
+      ${W.id ? `<button class="btn danger block" style="margin-top:12px" data-act="wine-delete">${icon("trash", "sm")} Delete wine</button>` : ""}
+    </div>`;
+  for (const ta of $$("#wineSheet textarea")) autosize(ta);
+}
+function wRerender(focusSel) {
+  const sh = $("#wineSheet"), y = sh.scrollTop;
+  renderWineEditor(); sh.scrollTop = y;
+  if (focusSel) $(focusSel)?.focus({ preventScroll: true });
+}
+function addPairing(title) {
+  const t = title.trim().toLowerCase(); if (!t) return;
+  const r = foodRecipes().find((x) => x.title.toLowerCase() === t);
+  if (!r) return;
+  if (!W.recipes.includes(r.id)) W.recipes.push(r.id);
+  wRerender("#wPairIn");
+}
+async function saveWine() {
+  if (!String(W.name).trim() && !String(W.producer).trim()) { toast("Give the wine a name or producer"); return $('[data-w="producer"]')?.focus(); }
+  if (!String(W.name).trim()) W.name = W.varietal || W.wine_type || "Wine";
+  const pend = $("#wPairIn")?.value; if (pend) addPairing(pend);
+  for (const b of $$('[data-act="wine-save"]')) b.disabled = true;
+  try {
+    const isNew = !W.id;
+    const id = await store.saveWine(W, W.recipes);
+    await reload();
+    S.wopen.add(id); S.scrollWine = id;
+    toast(isNew ? "Added to the vault 🍷" : "Saved");
+    back("#/bar");
+  } catch (e) {
+    toast(barErr(e.message));
+    for (const b of $$('[data-act="wine-save"]')) b.disabled = false;
+  }
+}
+async function deleteWine() {
+  const btn = $('[data-act="wine-delete"]');
+  if (!btn.dataset.confirm) { btn.dataset.confirm = "1"; btn.innerHTML = `${icon("trash", "sm")} Tap again to delete (history too)`; return; }
+  try { await store.deleteWine(W.id); S.wopen.delete(W.id); await reload(); toast("Wine deleted"); back("#/bar"); }
+  catch (e) { toast(barErr(e.message)); }
+}
+
 // ------------------------------------------------------------------ events
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button, [data-open], [data-act], [data-ck]");
@@ -992,7 +1393,22 @@ document.addEventListener("click", async (e) => {
     return renderHome();
   }
   if (d.fam) { S.famTab = d.fam; return renderFavorites(); }
-  if (d.toggle) { S.open.has(d.toggle) ? S.open.delete(d.toggle) : S.open.add(d.toggle); return renderHome(); }
+  if (d.toggle) { S.open.has(d.toggle) ? S.open.delete(d.toggle) : S.open.add(d.toggle); return S.tab === "bar" ? renderBarList() : renderHome(); }
+  // bar
+  if (d.bar) { if (S.bar !== d.bar) { S.bar = d.bar; S.bq = ""; $("#bq").value = ""; renderBar(); } return; }
+  if (d.spirit) { S.spirit.has(d.spirit) ? S.spirit.delete(d.spirit) : S.spirit.add(d.spirit); return renderBar(); }
+  if (d.wtype) { S.wtype.has(d.wtype) ? S.wtype.delete(d.wtype) : S.wtype.add(d.wtype); return renderBar(); }
+  if (d.wtoggle) { S.wopen.has(d.wtoggle) ? S.wopen.delete(d.wtoggle) : S.wopen.add(d.wtoggle); return renderBarList(); }
+  if (d.wdrink) return openDrink(d.wdrink);
+  if (d.wqty) return bumpWine(d.wqty, +d.d);
+  if (d.wedit) return go("#/wine/" + d.wedit);
+  if (d.wine) { S.bar = "vault"; S.wopen.add(d.wine); S.scrollWine = d.wine; if (!wineMatch(wineById(d.wine) || {})) { S.bq = ""; S.wtype.clear(); S.showEmpty = true; $("#bq").value = ""; } renderBar(); return go("#/bar"); }
+  if (d.dkn) { DK.n = +d.dkn; DK.occasion = $("#dkOcc")?.value || ""; const note = $("#dkNote")?.value || ""; renderDrink(); $("#dkNote").value = note; return; }
+  if (d.dkocc) { $("#dkOcc").value = d.dkocc; return; }
+  if (d.wt) { W.wine_type = d.wt; for (const b of $$("[data-wt]")) b.setAttribute("aria-pressed", b.dataset.wt === W.wine_type); return; }
+  if (d.wsize) { W.size = d.wsize; for (const b of $$("[data-wsize]")) b.setAttribute("aria-pressed", b.dataset.wsize === W.size); return; }
+  if (d.wunpair) { W.recipes = W.recipes.filter((x) => x !== d.wunpair); return wRerender(); }
+  if (d.meth) { E.method = E.method === d.meth ? "" : d.meth; for (const b of $$("#methSeg button")) b.setAttribute("aria-pressed", b.dataset.meth === E.method); return; }
   if (d.pin) return togglePin(d.pin);
   if (d.edit) return go("#/edit/" + d.edit);
   if (d.rate) return rate(d.rid || S.detail.id, +d.rate);
@@ -1010,6 +1426,18 @@ document.addEventListener("click", async (e) => {
 
   switch (d.act) {
     case "new": return go("#/new");
+    case "bar-new": return go(S.bar === "vault" ? "#/wine/new" : "#/new-drink");
+    case "bar-clear": S.bq = ""; $("#bq").value = ""; S.spirit.clear(); S.wtype.clear(); return renderBar();
+    case "wine-soon": S.wgroup = "window"; S.showEmpty = false; return renderBar();
+    case "wine-empties": S.showEmpty = !S.showEmpty; return renderBar();
+    case "drink-cancel": return closeSheet("drinkSheet");
+    case "drink-confirm": return confirmDrink();
+    case "wine-cancel": return back("#/bar");
+    case "wine-save": return saveWine();
+    case "wine-delete": return deleteWine();
+    case "wq-up": case "wq-down": W.quantity = Math.max(0, (+W.quantity || 0) + (d.act === "wq-up" ? 1 : -1)); $("#wQty").textContent = W.quantity; return;
+    case "wphoto": photoFor = "wine"; return $("#photoInput").click();
+    case "wimg-clear": W.image_url = ""; return wRerender();
     case "expand-all": visibleIds.forEach((id) => S.open.add(id)); return renderHome();
     case "collapse-all": S.open.clear(); return renderHome();
     case "clear-filters": S.filters = {}; S.q = ""; $("#q").value = ""; return renderHome();
@@ -1052,7 +1480,7 @@ document.addEventListener("click", async (e) => {
     }
     case "toggle-paste-text": $("#pasteText").hidden = !$("#pasteText").hidden; return $("#pasteArea").focus();
     case "sort-text": return applyText($("#pasteArea").value);
-    case "photo": return $("#photoInput").click();
+    case "photo": photoFor = "recipe"; return $("#photoInput").click();
     case "img-url": $("#imgUrlRow").hidden = false; return $('#imgUrlRow input').focus();
     case "img-clear": E.image_url = ""; return rerenderKeepScroll();
     case "toggle-parsed": $("#parsed").hidden = !$("#parsed").hidden; return updateParsed();
@@ -1078,12 +1506,16 @@ document.addEventListener("input", (e) => {
   const el = e.target;
   if (el.id === "q") { S.q = el.value; return renderHomeSoon(); }
   if (el.id === "meName") return saveNameSoon(el.value);
+  if (el.id === "bq") { S.bq = el.value; return renderBarListSoon(); }
+  if (el.dataset.w && W) { W[el.dataset.w] = el.value; if (el.tagName === "TEXTAREA") autosize(el); return; }
+  if (el.id === "wPairIn" && W && foodRecipes().some((r) => r.title.toLowerCase() === el.value.trim().toLowerCase())) return addPairing(el.value);
   const k = el.dataset.k;
   if (!k || !E) return;
   E[k] = el.value;
   if (el.tagName === "TEXTAREA") autosize(el);
   if (k === "ingText") updateParsedSoon();
   if (k === "prep_min" || k === "cook_min") autoTotal();
+  if (k === "course" && isDrink(E) !== E._drink) { E._drink = isDrink(E); rerenderKeepScroll('[data-k="course"]'); }
   if (k === "image_url") debounce(() => rerenderKeepScroll('#imgUrlRow input'), 900)();
 });
 const renderHomeSoon = debounce(renderHome, 120);
@@ -1094,8 +1526,11 @@ document.addEventListener("keydown", (e) => {
   if (e.target.id === "tagIn" && e.key === "Backspace" && !e.target.value && E.tags.length) { E.tags.pop(); rerenderKeepScroll("#tagIn"); }
   if (e.target.id === "impUrl" && e.key === "Enter") { e.preventDefault(); doImport(); }
   if (e.target.id === "groceryAdd" && e.key === "Enter") { e.preventDefault(); const v = e.target.value; e.target.value = ""; addManualGroceryItem(v); }
+  if (e.target.id === "wPairIn" && e.key === "Enter") { e.preventDefault(); addPairing(e.target.value); }
   if (e.key === "Escape") {
-    if ($("#editorSheet").classList.contains("open")) back(E?.id ? "#/r/" + E.id : "#/" + S.tab);
+    if ($("#drinkSheet").classList.contains("open")) closeSheet("drinkSheet");
+    else if ($("#wineSheet").classList.contains("open")) back("#/bar");
+    else if ($("#editorSheet").classList.contains("open")) back(E?.id ? "#/r/" + E.id : "#/" + S.tab);
     else if ($("#detailSheet").classList.contains("open")) back("#/" + S.tab);
   }
 });
@@ -1116,16 +1551,25 @@ $("#filterToggle").addEventListener("click", () => {
 });
 $("#scrim").addEventListener("click", () => {
   if ($("#shareSheet").classList.contains("open")) return closeSheet("shareSheet");
+  if ($("#drinkSheet").classList.contains("open")) return closeSheet("drinkSheet");
+  if ($("#wineSheet").classList.contains("open")) return;
   if ($("#adminSheet").classList.contains("open")) return closeSheet("adminSheet");
   if ($("#editorSheet").classList.contains("open")) return;
   if ($("#detailSheet").classList.contains("open")) return back("#/" + S.tab);
   if ($("#rouletteSheet").classList.contains("open")) return closeSheet("rouletteSheet");
   back("#/" + S.tab);
 });
+let photoFor = "recipe";
 $("#photoInput").addEventListener("change", async (e) => {
   const f = e.target.files[0]; e.target.value = "";
+  if (photoFor === "wine") {
+    if (!f || !W) return;
+    $("#wineSheet .photo").innerHTML = `<span class="ph"><span class="spin" style="color:var(--peach-deep)"></span>Uploading…</span>`;
+    try { W.image_url = await store.uploadImage(f); } catch (er) { toast(er.message); }
+    return wRerender();
+  }
   if (!f || !E) return;
-  const well = $(".photo"); well.innerHTML = `<span class="ph"><span class="spin" style="color:var(--peach-deep)"></span>Uploading…</span>`;
+  const well = $("#editorSheet .photo"); well.innerHTML = `<span class="ph"><span class="spin" style="color:var(--peach-deep)"></span>Uploading…</span>`;
   try { E.image_url = await store.uploadImage(f); } catch (er) { toast(er.message); }
   rerenderKeepScroll();
 });
@@ -1134,6 +1578,7 @@ $("#photoInput").addEventListener("change", async (e) => {
 async function reload() {
   const { ingredients = [], steps = [], grocery = [], ...d } = await store.loadAll();
   Object.assign(S, d);
+  S.wineLog = [...S.wineLog].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   S.grocery = [...grocery].sort((a, b) => (a.position - b.position) || (a.created_at || "").localeCompare(b.created_at || ""));
   S.details = new Map(S.recipes.map((r) => [r.id, { ingredients: [], steps: [] }]));
   for (const i of ingredients) S.details.get(i.recipe_id)?.ingredients.push(i);
