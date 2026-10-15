@@ -1,5 +1,6 @@
 import { createStore, isDemo } from "./store.js";
-import { parseIngredientBlock, parseStepBlock, ingredientsToText, stepsToText, scaleQty, qtyToNumber, splitRecipeText } from "./parse.js";
+import { combineGrocery } from "./grocery.js";
+import { parseIngredientBlock, parseStepBlock, ingredientsToText, stepsToText, scaleQty, qtyToNumber, splitRecipeText, prettyQty } from "./parse.js";
 
 // ------------------------------------------------------------------ helpers
 const $ = (s, el = document) => el.querySelector(s);
@@ -65,6 +66,7 @@ const S = {
   // bar
   barReady: true, wines: [], wineLog: [], pairings: [], bar: "vault", bq: "", spirit: new Set(), wtype: new Set(),
   wgroup: "location", wopen: new Set(), showEmpty: false,
+  gview: (() => { try { return localStorage.getItem("groceryView") || "combined"; } catch { return "combined"; } })(),
   view: null, // admin "view as family": { family_id, name, color, can_edit }
 };
 const byId = (id) => S.recipes.find((r) => r.id === id);
@@ -363,8 +365,24 @@ function groceryGroups() {
   return [...map.values()];
 }
 function groceryLine(it) {
-  return [it.quantity, it.unit, it.name].filter(Boolean).join(" ") + (it.note ? `, ${it.note}` : "");
+  return [prettyQty(it.quantity), it.unit, it.name].filter(Boolean).join(" ") + (it.note ? `, ${it.note}` : "");
 }
+// Combined view: same ingredient across recipes → one line with the total.
+function combinedRow(c) {
+  const ids = c.ids.join(",");
+  const from = c.sources.length > 1 || c.count > 1 ? c.sources.join(" · ") : c.sources[0] === "Added by hand" ? "" : c.sources[0];
+  return `<div class="item grocery-row ${c.checked ? "done" : ""}">
+    <button class="g-check" data-gcc="${ids}" aria-label="${c.checked ? "Mark as still needed" : "Mark as already have it"}">${icon("check", "sm")}</button>
+    <span class="g-txt">${c.qty ? `<b class="g-q">${h(c.qty)}</b> ` : ""}${h(c.name)}${c.notes.length ? `<span class="g-note">, ${h(c.notes.join("; "))}</span>` : ""}
+      ${from ? `<span class="g-from">${c.count > 1 ? `<span class="g-n">×${c.count}</span>` : ""}${h(from)}</span>` : ""}</span>
+    <button class="g-del" data-gcd="${ids}" aria-label="Remove">${icon("x", "sm")}</button>
+  </div>`;
+}
+function combinedList() {
+  const all = combineGrocery(S.grocery);
+  return [...all.filter((c) => !c.checked), ...all.filter((c) => c.checked)]; // checked sink to the bottom
+}
+function groceryLineCombined(c) { return [c.qty, c.name].filter(Boolean).join(" ") + (c.notes.length ? `, ${c.notes.join("; ")}` : ""); }
 function groceryRow(it) {
   return `<div class="item grocery-row ${it.checked ? "done" : ""}">
     <button class="g-check" data-gck="${it.id}" aria-label="${it.checked ? "Mark as still needed" : "Mark as already have it"}">${icon("check", "sm")}</button>
@@ -373,11 +391,17 @@ function groceryRow(it) {
   </div>`;
 }
 function renderGrocery() {
-  const groups = groceryGroups();
-  $("#groceryList").innerHTML = !S.grocery.length
-    ? emptyState("🧺", "Grocery list is empty", "Tap “Add to list” on any recipe to send its ingredients here, or add something below.")
-    : groups.map((g) => `<section class="lgroup"><div class="lgroup-head"><h2>${h(g.label)}</h2><span class="n">${g.items.length}</span></div>
+  for (const b of $$("#grocSeg button")) b.setAttribute("aria-pressed", b.dataset.gview === S.gview);
+  $("#grocSeg").hidden = !S.grocery.length;
+  let html;
+  if (!S.grocery.length) html = emptyState("🧺", "Grocery list is empty", "Tap “Add to list” on any recipe to send its ingredients here, or add something below.");
+  else if (S.gview === "combined") {
+    const rows = combinedList(), left = rows.filter((c) => !c.checked).length, merged = S.grocery.length - rows.length;
+    html = `<div class="list-meta"><span>${left} to buy${merged > 0 ? ` · ${merged} duplicate${merged === 1 ? "" : "s"} combined` : ""}</span></div>
+      <div class="list" style="margin-top:8px">${rows.map(combinedRow).join("")}</div>`;
+  } else html = groceryGroups().map((g) => `<section class="lgroup"><div class="lgroup-head"><h2>${h(g.label)}</h2><span class="n">${g.items.length}</span></div>
         <div class="list">${g.items.map(groceryRow).join("")}</div></section>`).join("");
+  $("#groceryList").innerHTML = html;
   const anyChecked = S.grocery.some((i) => i.checked);
   $("#groceryFoot").hidden = !S.grocery.length;
   $("#clearCheckedBtn").hidden = !anyChecked;
@@ -419,6 +443,17 @@ async function toggleGroceryChecked(id) {
   it.checked = !it.checked; renderGrocery();
   try { await store.setGroceryChecked(id, it.checked); } catch (e) { toast(e.message); }
 }
+async function setGroceryGroupChecked(ids) {
+  const rows = S.grocery.filter((x) => ids.includes(x.id)); if (!rows.length) return;
+  const on = !rows.every((r) => r.checked);
+  const changed = rows.filter((r) => r.checked !== on);
+  changed.forEach((r) => { r.checked = on; }); renderGrocery();
+  try { await Promise.all(changed.map((r) => store.setGroceryChecked(r.id, on))); } catch (e) { toast(e.message); }
+}
+async function deleteGroceryGroup(ids) {
+  S.grocery = S.grocery.filter((x) => !ids.includes(x.id)); renderGrocery();
+  try { await store.deleteGroceryItems(ids); } catch (e) { toast(e.message); }
+}
 async function deleteGroceryItem(id) {
   S.grocery = S.grocery.filter((x) => x.id !== id); renderGrocery();
   try { await store.deleteGroceryItem(id); } catch (e) { toast(e.message); }
@@ -446,6 +481,7 @@ async function clearAllGrocery() {
   try { await store.deleteGroceryItems(ids); toast("Grocery list cleared"); } catch (e) { toast(e.message); }
 }
 function groceryExportText() {
+  if (S.gview === "combined") return combinedList().filter((c) => !c.checked).map((c) => `- [ ] ${groceryLineCombined(c)}`).join("\n");
   return groceryGroups().map((g) => `${g.label}\n` + g.items.map((i) => `- [ ] ${groceryLine(i)}`).join("\n")).join("\n\n");
 }
 async function exportGrocery() {
@@ -1001,7 +1037,7 @@ function renderAdmin() {
 const isRO = () => !!(S.view && !S.view.can_edit);
 const viewErr = (m) => (/admin_view|function|schema cache/i.test(m) ? "View-as isn't set up yet — run 009_admin_view.sql in Supabase" : m);
 const RO_MSG = "Read-only view — tap the banner's “Allow edits” to make changes";
-const WRITE_KEYS = ["rate", "pin", "edit", "groc", "gck", "gdel", "sharefam", "wdrink", "wqty", "wedit", "tag", "untag"];
+const WRITE_KEYS = ["rate", "pin", "edit", "groc", "gck", "gdel", "gcc", "gcd", "sharefam", "wdrink", "wqty", "wedit", "tag", "untag"];
 const WRITE_ACTS = new Set(["new", "bar-new", "pin", "edit", "add-groc", "add-pinned-groc", "add-fav-groc", "add-grocery-item", "clear-checked", "clear-all-grocery",
   "share", "rl-groc", "rl-pin", "save", "delete", "wine-save", "wine-delete", "drink-confirm"]);
 const isWriteClick = (d) => WRITE_ACTS.has(d.act) || WRITE_KEYS.some((k) => d[k] != null);
@@ -1474,6 +1510,9 @@ document.addEventListener("click", async (e) => {
   if (d.groc) return addRecipeToGrocery(d.groc);
   if (d.gck) return toggleGroceryChecked(d.gck);
   if (d.gdel) return deleteGroceryItem(d.gdel);
+  if (d.gcc) return setGroceryGroupChecked(d.gcc.split(","));
+  if (d.gcd) return deleteGroceryGroup(d.gcd.split(","));
+  if (d.gview) { S.gview = d.gview; try { localStorage.setItem("groceryView", d.gview); } catch { /* private mode */ } return renderGrocery(); }
   if (d.sharefam) return doShare(d.sharefam);
   if (d.rln) { RL.n = +d.rln; RL.slots = []; return renderRoulette(); }
   if (d.rlock) { const sl = RL.slots[+d.rlock]; if (sl?.id) sl.locked = !sl.locked; return renderRoulette(); }
