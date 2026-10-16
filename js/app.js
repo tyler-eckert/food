@@ -64,8 +64,8 @@ const S = {
   famTab: "all", detail: null, scale: 1, checked: new Set(), wake: null,
   sort: "category", dir: 1, open: new Set(), sec: new Map(), ck: new Set(), details: new Map(),
   // bar
-  barReady: true, wines: [], wineLog: [], pairings: [], bar: "vault", bq: "", spirit: new Set(), wtype: new Set(),
-  wgroup: "location", wopen: new Set(), showEmpty: false,
+  barReady: true, wines: [], wineLog: [], pairings: [], bar: "vault", bq: "", spirit: new Set(),
+  wgroup: "location", wopen: new Set(), showEmpty: false, wf: {}, wfOpen: false, wfGroups: new Set(["wine_type", "price"]),
   gview: (() => { try { return localStorage.getItem("groceryView") || "combined"; } catch { return "combined"; } })(),
   view: null, // admin "view as family": { family_id, name, color, can_edit }
 };
@@ -1064,7 +1064,7 @@ function applyView() {
 }
 function resetBrowseState() {
   S.filters = {}; S.q = ""; S.open.clear(); S.ck.clear(); S.detail = null;
-  S.bq = ""; S.spirit.clear(); S.wtype.clear(); S.wopen.clear(); S.showEmpty = false;
+  S.bq = ""; S.spirit.clear(); S.wf = {}; S.wopen.clear(); S.showEmpty = false;
   for (const id of ["q", "bq"]) { const el = $("#" + id); if (el) el.value = ""; }
 }
 async function switchView(familyId, edit) {
@@ -1202,7 +1202,23 @@ function cocktailList() {
 const setupNote = () => `<div class="demo-note" style="margin-top:12px"><b>One setup step:</b> run <code>supabase/008_bar.sql</code> in the Supabase SQL Editor to turn on the wine vault and cocktail details (spirit, glass, garnish, method).</div>`;
 
 // ---------- wine vault
-function wineMatch(w, skipType = false) {
+// Recipe-style filters for the vault: OR within a group, AND across groups.
+const PRICE_BUCKETS = [["Under $25", (p) => p < 25], ["$25–50", (p) => p >= 25 && p < 50], ["$50–100", (p) => p >= 50 && p < 100], ["$100+", (p) => p >= 100]];
+const WFILTERS = [
+  { key: "wine_type", label: "Type", icon: "glass", tint: "blush", order: WINE_TYPES, vals: (w) => [w.wine_type || "Other"] },
+  { key: "varietal", label: "Grape", icon: "leaf", tint: "mint", vals: (w) => (w.varietal ? [w.varietal] : []) },
+  { key: "region", label: "Region", icon: "globe", tint: "lav", vals: (w) => (w.region ? [w.region] : w.country ? [w.country] : []) },
+  { key: "price", label: "Price", icon: "tag", tint: "butter", order: PRICE_BUCKETS.map((b) => b[0]),
+    vals: (w) => { const p = +(w.price ?? w.value); return w.price == null && w.value == null ? [] : PRICE_BUCKETS.filter(([, t]) => t(p)).map(([l]) => l); } },
+  { key: "window", label: "Drinking window", icon: "clock", tint: "peach", order: WINDOW_ORDER, vals: (w) => [wineWindow(w)?.key || "No window set"] },
+  { key: "vintage", label: "Vintage", icon: "flame", tint: "butter", desc: true,
+    vals: (w) => [!w.vintage ? "NV" : w.vintage >= yearNow() - 4 ? "Last 5 years" : `${Math.floor(w.vintage / 10) * 10}s`] },
+  { key: "producer", label: "Producer", icon: "users", tint: "peach", vals: (w) => (w.producer ? [w.producer] : []) },
+  { key: "spot", label: "Where it's stored", icon: "pin", tint: "mint", vals: (w) => [w.location ? [w.location, w.zone].filter(Boolean).join(" › ") : "Not shelved yet"] },
+];
+const wfCount = () => Object.values(S.wf).reduce((a, set) => a + set.size, 0);
+
+function wineMatch(w, skipKey = null) {
   if (!S.showEmpty && !w.quantity) return false;
   const terms = barTerms();
   if (terms.length) {
@@ -1210,7 +1226,40 @@ function wineMatch(w, skipType = false) {
       ...pairedRecipes(w.id).map((r) => r.title)].join(" ").toLowerCase();
     if (!terms.every((t) => hay.includes(t))) return false;
   }
-  return skipType || !S.wtype.size || S.wtype.has(w.wine_type || "Other");
+  for (const g of WFILTERS) {
+    const set = S.wf[g.key];
+    if (g.key === skipKey || !set?.size) continue;
+    const vals = g.vals(w);
+    if (![...set].some((v) => vals.includes(v))) return false;
+  }
+  return true;
+}
+function wineFilterPanel() {
+  let html = "";
+  for (const g of WFILTERS) {
+    const counts = new Map();
+    for (const w of S.wines) if (wineMatch(w, g.key)) for (const v of g.vals(w)) counts.set(v, (counts.get(v) || 0) + 1);
+    const sel = S.wf[g.key] || new Set();
+    for (const v of sel) if (!counts.has(v)) counts.set(v, 0);
+    if (!counts.size) continue;
+    const keys = [...counts.keys()].sort((a, b) => {
+      if (g.order) { const ia = g.order.indexOf(a), ib = g.order.indexOf(b); if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); }
+      if (g.desc) return (a === "NV") - (b === "NV") || (a === "Last 5 years" ? -1 : b === "Last 5 years" ? 1 : b.localeCompare(a));
+      return ["varietal", "region", "producer"].includes(g.key) ? counts.get(b) - counts.get(a) || a.localeCompare(b) : a.localeCompare(b, undefined, { numeric: true });
+    });
+    const [bg, fg] = TINT[g.tint];
+    html += `<details class="fgroup" data-wgroup="${g.key}" ${S.wfGroups.has(g.key) ? "open" : ""}>
+      <summary><span class="ico" style="background:${bg};color:${fg}">${icon(g.icon, "sm")}</span>${g.label}
+        <span class="count ${sel.size ? "on" : ""}">${sel.size ? `${sel.size} selected` : keys.length}</span>${icon("down", "sm chev")}</summary>
+      <div class="chips">${keys.map((v) => `<button class="chip" data-wf="${g.key}" data-v="${h(v)}" aria-pressed="${sel.has(v)}">${g.key === "wine_type" ? (WINE_STYLE[v] || ["🍷"])[0] + " " : ""}${h(v)} <small>${counts.get(v)}</small></button>`).join("")}</div>
+    </details>`;
+  }
+  const shown = S.wines.filter((w) => wineMatch(w));
+  const btl = shown.reduce((a, w) => a + (w.quantity || 0), 0);
+  const empties = S.wines.filter((w) => !w.quantity).length;
+  html += `<div class="filter-foot">${empties ? `<button class="chip" data-act="wine-empties" aria-pressed="${S.showEmpty}">Include finished <small>${empties}</small></button>` : ""}
+    <button class="link-btn" data-act="wf-clear" style="margin-left:12px" ${wfCount() ? "" : "hidden"}>Clear all</button><span style="color:var(--ink-3);font-size:14px;margin-left:auto">${shown.length} wine${shown.length === 1 ? "" : "s"} · ${btl} bottle${btl === 1 ? "" : "s"}</span></div>`;
+  return html;
 }
 const WGROUPS = {
   location: { label: "Location", key: (w) => w.location || "Not shelved yet", cmp: (a, b) => (a.zone || "").localeCompare(b.zone || "", undefined, { numeric: true }) || (a.slot || "").localeCompare(b.slot || "", undefined, { numeric: true }) || wineName(a).localeCompare(wineName(b)) },
@@ -1225,27 +1274,24 @@ function vaultTools() {
   const bottles = stocked.reduce((a, w) => a + w.quantity, 0);
   const value = stocked.reduce((a, w) => a + w.quantity * (+(w.value ?? w.price) || 0), 0);
   const soon = stocked.filter((w) => ["Drink soon", "Past peak"].includes(wineWindow(w)?.key)).length;
-  const counts = new Map();
-  for (const w of S.wines) if (wineMatch(w, true)) counts.set(w.wine_type || "Other", (counts.get(w.wine_type || "Other") || 0) + 1);
-  for (const v of S.wtype) if (!counts.has(v)) counts.set(v, 0);
-  const keys = [...counts.keys()].sort((a, b) => (WINE_TYPES.indexOf(a) + 1 || 99) - (WINE_TYPES.indexOf(b) + 1 || 99));
-  const empties = S.wines.filter((w) => !w.quantity).length;
+  const n = wfCount();
   return `<div class="tiles four">
       <div class="tile"><b>${bottles}</b><span>Bottles</span></div>
       <div class="tile"><b>${stocked.length}</b><span>Wines</span></div>
       <div class="tile"><b>${value ? money(Math.round(value)) : "—"}</b><span>Value</span></div>
       <button class="tile ${soon ? "alert" : ""}" data-act="wine-soon"><b>${soon}</b><span>Drink soon</span></button></div>
     <div class="toolbar">
+      <button class="pill-btn" data-act="wf-toggle" aria-expanded="${S.wfOpen}">${icon("sliders", "sm")}Filters${n ? `<span class="badge">${n}</span>` : ""}${icon("down", "sm chev")}</button>
       <label class="pill-btn sort-pill" for="wGroup">${icon("sort", "sm")}<select id="wGroup" aria-label="Group wines by">${Object.entries(WGROUPS).map(([k, g]) => `<option value="${k}" ${S.wgroup === k ? "selected" : ""}>${g.label}</option>`).join("")}</select>${icon("down", "sm chev")}</label>
-      ${empties ? `<button class="chip" style="margin-left:auto" data-act="wine-empties" aria-pressed="${S.showEmpty}">Finished <small>${empties}</small></button>` : ""}
     </div>
-    ${keys.length > 1 || S.wtype.size ? `<div class="bar-chips">${keys.map((k) => `<button class="chip" data-wtype="${h(k)}" aria-pressed="${S.wtype.has(k)}">${(WINE_STYLE[k] || ["🍷"])[0]} ${h(k)} <small>${counts.get(k)}</small></button>`).join("")}</div>` : ""}`;
+    <div class="collapse ${S.wfOpen ? "open" : ""}" id="wfWrap"><div><div class="filter-panel">${wineFilterPanel()}</div></div></div>
+    ${n || S.showEmpty ? `<div class="active-row">${S.showEmpty ? `<button class="chip" data-act="wine-empties">Incl. finished ${icon("x", "sm")}</button>` : ""}${Object.entries(S.wf).flatMap(([k, set]) => [...set].map((v) => `<button class="chip" data-wf="${k}" data-v="${h(v)}">${h(v)} ${icon("x", "sm")}</button>`)).join("")}</div>` : ""}`;
 }
 function vaultList() {
   if (!S.barReady) return setupNote().replace("margin-top:12px", "margin-top:4px") + emptyState("🍷", "Wine vault is almost ready", "Run the 008_bar.sql migration in Supabase, then refresh.");
   const list = S.wines.filter((w) => wineMatch(w));
   if (!list.length) return S.wines.length
-    ? emptyState("🔍", "No matches", S.showEmpty ? "Try a different search or type." : "Try a different search or type — or show finished bottles.", `<button class="btn soft" data-act="bar-clear">Clear</button>`)
+    ? emptyState("🔍", "No matches", S.showEmpty ? "Try a different search or loosen a filter." : "Try a different search or loosen a filter — or show finished bottles.", `<button class="btn soft" data-act="bar-clear">Clear</button>`)
     : emptyState("🍷", "Your vault is empty", "Add the bottles you're keeping — what they are, where they're stored, and when to open them.", `<button class="btn primary" data-act="bar-new">${icon("plus")} Add a wine</button>`);
   const g = WGROUPS[S.wgroup] || WGROUPS.location;
   const map = new Map();
@@ -1488,12 +1534,12 @@ document.addEventListener("click", async (e) => {
   // bar
   if (d.bar) { if (S.bar !== d.bar) { S.bar = d.bar; S.bq = ""; $("#bq").value = ""; renderBar(); } return; }
   if (d.spirit) { S.spirit.has(d.spirit) ? S.spirit.delete(d.spirit) : S.spirit.add(d.spirit); return renderBar(); }
-  if (d.wtype) { S.wtype.has(d.wtype) ? S.wtype.delete(d.wtype) : S.wtype.add(d.wtype); return renderBar(); }
+  if (d.wf) { const set = (S.wf[d.wf] ||= new Set()); set.has(d.v) ? set.delete(d.v) : set.add(d.v); return renderBar(); }
   if (d.wtoggle) { S.wopen.has(d.wtoggle) ? S.wopen.delete(d.wtoggle) : S.wopen.add(d.wtoggle); return renderBarList(); }
   if (d.wdrink) return openDrink(d.wdrink);
   if (d.wqty) return bumpWine(d.wqty, +d.d);
   if (d.wedit) return go("#/wine/" + d.wedit);
-  if (d.wine) { S.bar = "vault"; S.wopen.add(d.wine); S.scrollWine = d.wine; if (!wineMatch(wineById(d.wine) || {})) { S.bq = ""; S.wtype.clear(); S.showEmpty = true; $("#bq").value = ""; } renderBar(); return go("#/bar"); }
+  if (d.wine) { S.bar = "vault"; S.wopen.add(d.wine); S.scrollWine = d.wine; if (!wineMatch(wineById(d.wine) || {})) { S.bq = ""; S.wf = {}; S.showEmpty = true; $("#bq").value = ""; } renderBar(); return go("#/bar"); }
   if (d.dkn) { DK.n = +d.dkn; DK.occasion = $("#dkOcc")?.value || ""; const note = $("#dkNote")?.value || ""; renderDrink(); $("#dkNote").value = note; return; }
   if (d.dkocc) { $("#dkOcc").value = d.dkocc; return; }
   if (d.wt) { W.wine_type = d.wt; for (const b of $$("[data-wt]")) b.setAttribute("aria-pressed", b.dataset.wt === W.wine_type); return; }
@@ -1521,8 +1567,10 @@ document.addEventListener("click", async (e) => {
   switch (d.act) {
     case "new": return go("#/new");
     case "bar-new": return go(S.bar === "vault" ? "#/wine/new" : "#/new-drink");
-    case "bar-clear": S.bq = ""; $("#bq").value = ""; S.spirit.clear(); S.wtype.clear(); return renderBar();
-    case "wine-soon": S.wgroup = "window"; S.showEmpty = false; return renderBar();
+    case "bar-clear": S.bq = ""; $("#bq").value = ""; S.spirit.clear(); S.wf = {}; return renderBar();
+    case "wine-soon": S.wf = { window: new Set(["Drink soon", "Past peak"]) }; S.showEmpty = false; S.wfOpen = false; return renderBar();
+    case "wf-toggle": S.wfOpen = !S.wfOpen; $("#wfWrap")?.classList.toggle("open", S.wfOpen); return t.setAttribute("aria-expanded", S.wfOpen);
+    case "wf-clear": S.wf = {}; return renderBar();
     case "wine-empties": S.showEmpty = !S.showEmpty; return renderBar();
     case "drink-cancel": return closeSheet("drinkSheet");
     case "drink-confirm": return confirmDrink();
@@ -1635,6 +1683,8 @@ document.addEventListener("focusout", (e) => { if (e.target.id === "tagIn" && e.
 document.addEventListener("toggle", (e) => {
   const sec = e.target.dataset?.sec;
   if (sec) { const id = e.target.dataset.rid; const v = S.sec.get(id) || { ing: true, steps: false }; v[sec] = e.target.open; S.sec.set(id, v); return; }
+  const wg = e.target.dataset?.wgroup;
+  if (wg) { e.target.open ? S.wfGroups.add(wg) : S.wfGroups.delete(wg); return; }
   const g = e.target.dataset?.group; if (!g) return;
   e.target.open ? S.openGroups.add(g) : S.openGroups.delete(g);
 }, true);
